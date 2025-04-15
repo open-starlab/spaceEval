@@ -1,0 +1,4 @@
+*.pyc
+venv/
+__pycache__/
+openstarlab_spaceEval.egg-info/
