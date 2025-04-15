@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: openstarlab_spaceEval
+Version: 0.0.1
+Summary: openstarlab space eval package
+Author-email: Calvin Yeung <yeung.chikwong@g.sp.m.is.nagoya-u.ac.jp>
+License: Apache License 2.0
+Project-URL: Homepage, https://github.com/open-starlab/
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: scipy
