@@ -1,5 +1,10 @@
-*.pyc
-__pycache__/
 openstarlab_spaceeval.egg-info/
 spaceEval/MANIFEST.in
-
+spaceEval/sports/__pycache__
+spaceEval/sports/basketball/__pycache__
+spaceEval/sports/basketball/application/__pycache__
+spaceEval/sports/basketball/main_class_basketball/__pycache__
+spaceEval/sports/basketball/models/__pycache__
+spaceEval/sports/basketball/utils/__pycache__
+__pycache__/
+*.pyc
