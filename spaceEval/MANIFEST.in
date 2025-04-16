@@ -1,2 +1,0 @@
-include sports/basketball/utils/*.csv
-indlude sports/basketball/utils/onball_scoreDataset/*.mat
