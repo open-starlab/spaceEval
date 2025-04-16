@@ -44,7 +44,7 @@ class BIMOS():
             raise ValueError("Invalid data format: must be a non-empty pandas DataFrame")
     
         # Vérifiez que les colonnes nécessaires existent
-        required_columns = ['x_ball', 'y_ball', 'ball_holder_pid_idx']
+        required_columns = ['x_ball', 'y_ball', 'ball_holder']
         missing_columns = [col for col in required_columns if col not in data.columns]
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
@@ -81,10 +81,10 @@ class Player:
         self.PPCF = 0.0
 
     def get_player_id_with_ball(self, data):
-        if data['ball_holder_pid_idx'].values[0] == 0:
+        if data['ball_holder'].values[0] == 0:
             return None
         else:
-            return int(data['ball_holder_pid_idx'].values[0]) - 1
+            return int(data['ball_holder'].values[0]) - 1
 
     def get_position(self, data):
         if self.teamside == 'attacker':
