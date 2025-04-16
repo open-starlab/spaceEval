@@ -1,3 +1,4 @@
+*.pyc
 __pycache__/
 openstarlab_spaceeval.egg-info/
 spaceEval/MANIFEST.in
