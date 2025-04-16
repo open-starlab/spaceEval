@@ -6,5 +6,6 @@ spaceEval/sports/basketball/application/__pycache__
 spaceEval/sports/basketball/main_class_basketball/__pycache__
 spaceEval/sports/basketball/models/__pycache__
 spaceEval/sports/basketball/utils/__pycache__
+dist/
 __pycache__/
 *.pyc
