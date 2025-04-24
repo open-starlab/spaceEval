@@ -1,11 +1,10 @@
-from .basketball.main_class_basketball.main import space_model_basketball
-
 class Space_Model:
     basketball_space_model = ['BIMOS','BMOS']
     other_model = []
 
     def __new__(cls, space_model, *args, **kwargs):
         if space_model in cls.basketball_space_model:
+            from .basketball.main_class_basketball.main import space_model_basketball
             return space_model_basketball(space_model, *args, **kwargs)
         elif space_model in cls.other_model:
             raise NotImplementedError('other model not implemented yet')
