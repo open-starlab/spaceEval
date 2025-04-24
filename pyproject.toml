@@ -23,6 +23,7 @@ dependencies = [
     "numpy",
     "matplotlib",
     "scipy",
+    "tqdm"
 ]
 
 license = { text = "Apache License 2.0" }
