@@ -234,7 +234,7 @@ def plot_heat_map_sequence(model, data, heatmap=True,
         }
 
         if model == "BMOS":
-            frame_info['attValue'] = BIMOS(row_cumput).values
+            frame_info['attValue'] = BMOS(row_cumput).values
         
         if model == "BIMOS":
             frame_info['attValue'] = BIMOS(row_cumput).values
