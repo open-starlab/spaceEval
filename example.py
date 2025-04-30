@@ -15,7 +15,7 @@ data_path = "data_VUNBA"
 
 
 #--------- space_eval -----------
-basket_df = pd.read_csv("data_VUNBA/basket_df.csv")
+basket_df = pd.read_csv("data_VUNBA/reshape_data.csv")
 
 # Initialize the sport and the model of space evaluation you want
 space_model = Space_Model('BIMOS')
