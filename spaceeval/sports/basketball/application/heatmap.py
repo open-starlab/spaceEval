@@ -1,5 +1,7 @@
+import os
+import subprocess
+import plotly.graph_objects as go
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
 import matplotlib.animation as animation
 import matplotlib.image as mpimg
@@ -11,6 +13,8 @@ from ..models.BIMOS import BIMOS
 from ..models.BMOS import BMOS
 import datetime
 from ..utils import SportVU_IO as sio
+import glob
+import cv2
 
 COURT_SIZE = (28, 15)  # Court dimensions in meters
 EVENT_LABEL = 1
@@ -143,25 +147,44 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
 
 
-def plot_heat_map_sequence(model, data, heatmap=True, 
+def movie_from_images(image_files, output_file, frames_with_heatmap, fps=8, heatmap_duration_multiplier=10):
+    frame = cv2.imread(image_files[0])
+    height, width, _ = frame.shape
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
+
+    frame_indices = {}
+    for i, file in enumerate(image_files):
+        frame_number = int(file.split('_')[-1].split('.')[0])
+        frame_indices[file] = frame_number
+
+    for file in image_files:
+        img = cv2.imread(file)
+        frame_number = frame_indices[file]
+        
+        if frame_number in frames_with_heatmap:
+            for _ in range(heatmap_duration_multiplier):
+                out.write(img)
+        else:
+            out.write(img)
+
+    out.release()
+
+    # Clean up by deleting image files after creating the movie
+    print("Video created at:", output_file)
+
+    if os.path.exists("figures"):
+        for file in glob.glob("figures/*"):
+            os.remove(file)
+        os.rmdir("figures")
+        print("Figures directory removed")
+
+
+def plot_heat_map_sequence(model, data, save_path_folder, heatmap=True, 
     EVENT=True, JERSEY=True, BID=False, axis=False, title=True, field_dimen=(COURT_SIZE[0],COURT_SIZE[1])):
     """
     Plots animation for a specific scene.
-
-    Parameters:
-    -----------
-        game_id, s_id, f_id: IDs for the game, scene, and frame.
-        params: Parameters for pitch control calculation.
-        fit_params: Parameters for tau_true - tau_exp distribution fitting.
-        integral_xmin: Integration limit for pitch control.
-        version: One of "BMOS", "BIMOS", "PPCF", or "PBCF".
-        heatmap: If True, displays heatmap.
-        EVENT: If True, displays event labels.
-        JERSEY: If Ture, displays jersey numbers
-        BID: If True, highlights the player in ball possession.
-        axis: If True, shows axis ticks and labels.
-        title: If True, adds a title to the plot.
-    -----------
     """
 
     def get_key_from_value(d, val):
@@ -195,17 +218,16 @@ def plot_heat_map_sequence(model, data, heatmap=True,
     team_name_O = sio.load_team_name(team_id_O)
     team_name_D = sio.load_team_name(team_id_D)
 
-    # Precalculate frame data
-    precalculated_data = []
-    for i in range(len(data)):
+    frames_with_heatmap = []
+    for i in tqdm(range(len(data))):
         row_cumput = data.iloc[[i]].copy()
 
         att_x = []
         att_y = []
         dim_att = []
-        for i in range(5):  # 5 attaquants
-            x = row_cumput[f'x_att{i}'].values[0]
-            y = row_cumput[f'y_att{i}'].values[0]
+        for j in range(5):  # 5 attaquants
+            x = row_cumput[f'x_att{j}'].values[0]
+            y = row_cumput[f'y_att{j}'].values[0]
             att_x.append(x)
             att_y.append(y)
 
@@ -214,9 +236,9 @@ def plot_heat_map_sequence(model, data, heatmap=True,
         def_x = []
         def_y = []
         dim_def = []
-        for i in range(5):
-            x = row_cumput[f'x_def{i}'].values[0]
-            y = row_cumput[f'y_def{i}'].values[0]
+        for j in range(5):
+            x = row_cumput[f'x_def{j}'].values[0]
+            y = row_cumput[f'y_def{j}'].values[0]
             def_x.append(x)
             def_y.append(y)
 
@@ -233,80 +255,95 @@ def plot_heat_map_sequence(model, data, heatmap=True,
             'dim_ball': dim_ball
         }
 
-        if model == "BMOS":
-            frame_info['attValue'] = BMOS(row_cumput).values
-        
-        if model == "BIMOS":
-            frame_info['attValue'] = BIMOS(row_cumput).values
+        if row_cumput['event_label'].values[0] not in [0, 4, 8]:
+            frames_with_heatmap.append(i)
+            if model == "BIMOS":
+                frame_info['attValue'] = BIMOS(row_cumput).values
+            
+            else:
+                frame_info['attValue'] = BMOS(row_cumput).values
+        else:
+            frame_info['attValue'] = [[0] * 28 for _ in range(15)]
 
         if EVENT:
             frame_info['event_label'] = row_cumput['event_label'].values[0]
 
         if JERSEY:
             frame_info['jersey_number'] = row_cumput.filter(regex='^jersey_', axis=1).iloc[0].tolist()
-            
-        precalculated_data.append(frame_info)
 
-    # Animation
-    fig, ax = plt.subplots()
-
-    def animate(f_id):
-        ax.clear()
-        frame_info = precalculated_data[f_id]
-
-        # Plot heatmap
+        # Create the figure and set up basic layout
+        fig, ax = plt.subplots(figsize=(6, 5))
+        fig.subplots_adjust(left=0.01, bottom=0.08, right=0.99, top=0.95)
+        plt.text(14, -2, '[m]', ha='center')
+        
+        # Plot heatmap if enabled
         if heatmap:
             ax.imshow(frame_info['attValue'], cmap='Reds', vmin=0., vmax=1., 
-                    extent=(0, field_dimen[0], 0, field_dimen[1]), alpha=0.9)
-            
+                 extent=(0, field_dimen[0], 0, field_dimen[1]), alpha=0.9)
+        
         # Plot players and ball
-        ax.scatter(*frame_info['dim_att'],  s=100, edgecolor ='r', c = "white")
-        ax.scatter(*frame_info['dim_def'], s=100, edgecolor='b', c = "white")
-        ax.scatter(*frame_info['dim_ball'], s=30, c = "black")
+        ax.scatter(*frame_info['dim_att'], s=100, edgecolor='r', c="white")
+        ax.scatter(*frame_info['dim_def'], s=100, edgecolor='b', c="white")
+        ax.scatter(*frame_info['dim_ball'], s=30, c="black")
 
-        # Highlight ball possessor
-        if BID and data['ball_holder'].values[0] > 0:
-            bid_idx = int(data['ball_holder'].values[0] - 1)
+        # Highlight ball possessor if enabled
+        if BID and row_cumput['ball_holder'].values[0] > 0:
+            bid_idx = int(row_cumput['ball_holder'].values[0] - 1)
             ax.scatter(
-                data[f'x_att{bid_idx}'].values[0], 
-                data[f'y_att{bid_idx}'].values[0],
-                s=17, facecolors='none', edgecolors='black'
-                )
+            row_cumput[f'x_att{bid_idx}'].values[0], 
+            row_cumput[f'y_att{bid_idx}'].values[0],
+            s=60, facecolors='none', edgecolors='black'
+            )
 
-        # Add event labels
-        if EVENT:
+        # Add event labels if enabled
+        if EVENT and 'event_label' in frame_info:
             ax.text(*frame_info['dim_ball'], f"{frame_info['event_label']}", fontsize=8)
 
-        # Add jersey numbers
-        if JERSEY:
-            for i in np.arange(10):
-                jersey_numbers = int(frame_info["jersey_number"][i])
-                if i < 5:
-                    x, y = frame_info['dim_att'][0][i], frame_info['dim_att'][1][i]
-                else:
-                    x, y = frame_info['dim_def'][0][i-5], frame_info['dim_def'][1][i-5]
-                ax.text(x, y, 
-                        f'{jersey_numbers}', 
-                        fontsize=8, horizontalalignment='center', verticalalignment='center',)
+        # Add jersey numbers if enabled
+        if JERSEY and 'jersey_number' in frame_info:
+            for j in range(10):
+                jersey_number = int(frame_info["jersey_number"][j])
+                if j < 5:  # Attacking team
+                    x, y = frame_info['dim_att'][0][j], frame_info['dim_att'][1][j]
+                else:  # Defending team
+                    x, y = frame_info['dim_def'][0][j-5], frame_info['dim_def'][1][j-5]
+                
+                ax.text(x, y, f'{jersey_number}', 
+                       fontsize=8, ha='center', va='center')
 
-        # Add titles
-        fid_str = str(f_id).zfill(3)
-        if not title:
-            key = get_key_from_value(EVENT_LABELS, data[len(data)-1][EVENT_LABEL])
-            ax.set_title(f'Game {game_id} - Event {s_id} - Frame {fid_str} - {key}')
-        else:
+    
+        fid_str = str(i).zfill(3)
+        # Add title based on configuration
+        if title:
+            # Detailed title with team names and date
             ax.set_title('')
             ax.text(0.08, 1.025, team_name_O, color='red', fontsize=12, ha='center', transform=ax.transAxes)
             ax.text(0.17, 1.025, 'vs.', color='black', fontsize=12, ha='center', transform=ax.transAxes)
             ax.text(0.25, 1.025, team_name_D, color='blue', fontsize=12, ha='center', transform=ax.transAxes)
-            ax.text(0.65, 1.025, date + ' ' + month + '. ' +  year + ' - Frame ' + fid_str, 
-                    color='black', fontsize=12, ha='center', transform=ax.transAxes)
+            ax.text(0.65, 1.025, f"{date} {month}. {year} - Frame {fid_str}", 
+               color='black', fontsize=12, ha='center', transform=ax.transAxes)
+        else:
+            # Simple title with game info and event type
+            event_key = get_key_from_value(EVENT_LABELS, row_cumput['event_label'].values[0])
+            ax.set_title(f'Game {game_id} - Event {s_id} - Frame {fid_str} - {event_key}')
 
+        # Hide axis if not needed
         if not axis:
             plt.xticks([])
-            plt.yticks([])  
+            plt.yticks([])
 
+        # Save the frame and close the plot
+# Add the court background
         plotCourt()
 
-    ani = animation.FuncAnimation(fig, animate, frames=len(data), interval=100)
-    plt.show()
+        if not os.path.exists("figures"):
+            os.makedirs("figures")
+        plt.savefig(f"figures/frame_{game_id}_{s_id}_{fid_str}.png")
+        plt.close()
+
+    image_files = sorted(glob.glob(f"figures/frame_{game_id}_{s_id}_*.png"))
+    print(image_files)
+    video_name = f"{save_path_folder}/space_evaluation_{game_id}_{s_id}.mp4"
+    movie_from_images(image_files=image_files, output_file=video_name, frames_with_heatmap = frames_with_heatmap)
+
+    
