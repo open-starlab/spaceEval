@@ -1,16 +1,21 @@
 from preprocessing import Space_data
 from spaceeval import Space_Model
 
-#----download space data--------
 
+#---- data preparation------
+
+# if you need the preprocessing data
 # indicate the folder where you gonna download the sportVU data (Rikako Kono shape)
 data_path = "your/data/folder"
 
-##for download the data
+# download the data
 Space_data(data_provider="SportVU_NBA", data_path= data_path).download_data()
 
 #reshape the data from 4 game in CSV
 basket_df = Space_data(data_provider="SportVU_NBA", data_path= data_path).preprocessing(nb_process_game = 4)
+
+# if you already have the preprocessing data reshape_data.csv
+basket_df = pd.read_csv("your/data/folder/reshape_data.csv")
 
 
 #--------- space_eval -----------
