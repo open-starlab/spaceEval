@@ -7,7 +7,7 @@ import pandas as pd
 # if you need the preprocessing data
 
 # indicate the folder where you gonna download the sportVU data (Rikako Kono shape)
-data_path = "C:/Users/titou/Desktop/data"
+data_path = "your/folder/data"
 
 # download the data
 Space_data(data_provider="SportVU_NBA", data_path= data_path).download_data()
@@ -17,7 +17,7 @@ basket_df = Space_data(data_provider="SportVU_NBA", data_path= data_path).prepro
 
 
 # if you already have the preprocessing data reshape_data.csv
-basket_df = pd.read_csv("C:/Users/titou/Desktop/data/reshape_data.csv")
+basket_df = pd.read_csv("your/folder/data/reshape_data.csv")
 
 
 #--------- space_eval -----------
