@@ -1,12 +1,13 @@
 from preprocessing import Space_data
 from spaceeval import Space_Model
-
+import pandas as pd
 
 #---- data preparation------
 
 # if you need the preprocessing data
+
 # indicate the folder where you gonna download the sportVU data (Rikako Kono shape)
-data_path = "your/data/folder"
+data_path = "C:/Users/titou/Desktop/data"
 
 # download the data
 Space_data(data_provider="SportVU_NBA", data_path= data_path).download_data()
@@ -14,8 +15,9 @@ Space_data(data_provider="SportVU_NBA", data_path= data_path).download_data()
 #reshape the data from 4 game in CSV
 basket_df = Space_data(data_provider="SportVU_NBA", data_path= data_path).preprocessing(nb_process_game = 4)
 
+
 # if you already have the preprocessing data reshape_data.csv
-basket_df = pd.read_csv("your/data/folder/reshape_data.csv")
+basket_df = pd.read_csv("C:/Users/titou/Desktop/data/reshape_data.csv")
 
 
 #--------- space_eval -----------
@@ -29,7 +31,7 @@ data_frame = basket_df.iloc[[100]].copy()
 save_path_folder = data_path
 
 # Plot the heat map for frame
-#space_model.plot_heat_map_frame(save_path_folder, data_frame)
+space_model.plot_heat_map_frame(save_path_folder, data_frame)
 
 
 # Filter only the row for the event we want to visualize

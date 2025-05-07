@@ -1,7 +1,6 @@
 from ..models.BIMOS import BIMOS
 from ..models.BMOS import BMOS
 import os
-import requests
 import gdown
 import zipfile
 
