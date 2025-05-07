@@ -4,7 +4,7 @@ import pandas as pd
 import math
 import importlib.resources as pkg_ressources
 from ...basketball import utils
-from ..utils import onball_scoreDataset
+import os
 
 # event data index
 SCORE = 2
@@ -21,7 +21,10 @@ def load_tracking_data(game_id, onball=False):
     game_str = str(game_id).zfill(3)
     if onball:
         file_name = f"attackDataset_game{game_str}.mat"
-        with pkg_ressources.open_binary(onball_scoreDataset, file_name) as file:
+        current_path = os.getcwd()
+        onball_dir = "onball_scoreDataset"
+        file_path = os.path.join(current_path, onball_dir, file_name)
+        with open(file_path, 'rb') as file:
             t_data = loadmat(file)['data'][0]
     return t_data
 
