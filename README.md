@@ -8,10 +8,7 @@ This package is continuously evolving to support future OpenSTARLab projects. If
 
 
 ## Installation
-- Install [pytorch](https://pytorch.org/get-started/locally/) (recommended version 2.4.0 linux pip python3.8 cuda12.1)
-```
-pip install torch torchvision torchaudio
-```
+
 - To install this package via PyPI
 ```
 pip install openstarlab-spaceEval
