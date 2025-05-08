@@ -23,7 +23,8 @@ dependencies = [
     "numpy",
     "matplotlib",
     "scipy",
-    "tqdm"
+    "tqdm",
+    "opencv-python"
 ]
 
 license = { text = "Apache License 2.0" }
