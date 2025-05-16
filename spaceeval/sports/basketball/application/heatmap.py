@@ -1,10 +1,6 @@
 import os
-import subprocess
-import plotly.graph_objects as go
 import numpy as np
 from tqdm import tqdm
-import matplotlib.animation as animation
-import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import importlib.resources as pkg_resources
 from ...basketball import utils
@@ -122,7 +118,7 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
     
 
     if title:
-        plt.title(f"Game {data['gameID'].values[0]} - Event {data['eventid'].values[0]} - Frame {data['f_id'].values[0]}")
+        plt.title(f"Game {data['gameID'].values[0]} - Attack {data['attackid'].values[0]} - Frame {data['f_id'].values[0]}")
 
     plt.show()
 
@@ -132,17 +128,17 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
     else:
         game_id = 'unknown'
     
-    if 'eventid' in data.columns:
-        event_id = data['eventid'].values[0]
+    if 'attackid' in data.columns:
+        attackid = data['attackid'].values[0]
     else:
-        event_id = 'unknown'
+        attackid = 'unknown'
     
     if 'f_id' in data.columns:
         frame_id = data['f_id'].values[0]
     else:
         frame_id = 'unknown'
     
-    filename = f"heatmap_game_{game_id}_event_{event_id}_frame_{frame_id}.png"
+    filename = f"heatmap_game_{game_id}_attack_{attackid}_frame_{frame_id}.png"
     save_path = f"{save_path_folder}/{filename}"
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
 
@@ -186,10 +182,6 @@ def plot_heat_map_sequence(model, data, save_path_folder, heatmap=True,
     """
     Plots animation for a specific scene.
     """
-
-    def get_key_from_value(d, val):
-        keys = [k for k, v in d.items() if v == val]
-        return keys[0]
     
     def extract_date_info(gamename):
         parts = gamename.split('_')
@@ -206,7 +198,7 @@ def plot_heat_map_sequence(model, data, save_path_folder, heatmap=True,
         return day_formatted, month_name, str(year)
     
     game_id = data['gameID'].values[0]
-    s_id = data['eventid'].values[0]
+    s_id = data['attackid'].values[0]
 
     # Obtain date info
     gamename = data['gamename'].values[0]
@@ -324,8 +316,7 @@ def plot_heat_map_sequence(model, data, save_path_folder, heatmap=True,
                color='black', fontsize=12, ha='center', transform=ax.transAxes)
         else:
             # Simple title with game info and event type
-            event_key = get_key_from_value(EVENT_LABELS, row_cumput['event_label'].values[0])
-            ax.set_title(f'Game {game_id} - Event {s_id} - Frame {fid_str} - {event_key}')
+            ax.set_title(f'Game {game_id} - Attack {s_id} - Frame {fid_str}')
 
         # Hide axis if not needed
         if not axis:
