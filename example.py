@@ -35,7 +35,7 @@ space_model.plot_heat_map_frame(save_path_folder, data_frame)
 
 
 # Filter only the row for the event we want to visualize
-data_frame = basket_df[(basket_df['game'] == 1) & (basket_df['eventid']==6)].copy()
+data_frame = basket_df[(basket_df['game'] == 1) & (basket_df['attackid']==6)].copy()
 
 # Create the video with heat map for event frame during sequence
 space_model.plot_heat_map_sequence(data_frame,data_path)
