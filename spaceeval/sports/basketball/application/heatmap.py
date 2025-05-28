@@ -134,6 +134,8 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
     save_path = f"{save_path_folder}/{filename}"
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
 
+    plt.close(fig)
+
 
 def movie_from_images(image_files, output_file, frames_with_heatmap, fps=8, heatmap_duration_multiplier=10):
     frame = cv2.imread(image_files[0])
