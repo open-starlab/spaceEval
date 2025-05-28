@@ -45,9 +45,9 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
     att_x = []
     att_y = []
     dim_att = []
-    for i in range(5):  # 5 attaquants
-        x = data[f'x_att{i}'].values[0]
-        y = data[f'y_att{i}'].values[0]
+    for a in range(5):  # 5 attaquants
+        x = data[f'x_att{a}'].values[0]
+        y = data[f'y_att{a}'].values[0]
         att_x.append(x)
         att_y.append(y)
     
@@ -56,9 +56,9 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
     def_x = []
     def_y = []
     dim_def = []
-    for i in range(5):
-        x = data[f'x_def{i}'].values[0]
-        y = data[f'y_def{i}'].values[0]
+    for b in range(5):
+        x = data[f'x_def{b}'].values[0]
+        y = data[f'y_def{b}'].values[0]
         def_x.append(x)
         def_y.append(y)
 
@@ -84,7 +84,7 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
     ax.scatter(*dim_ball, s = 100, edgecolor = 'black', c = 'white')
     ax.scatter(*dim_ball, s = 30, c = 'black')
 
-    if BID and data['ball_holder'].values[0] > 0:
+    if BID and data['ball_holder'].values[0] > 0 and data['ball_holder'].values[0] < 9:
         bid_idx = int(data['ball_holder'].values[0] - 1)
         ax.scatter(
             data[f'x_att{bid_idx}'].values[0], 
@@ -93,34 +93,26 @@ def plot_heat_map_frame(save_path_folder, attValue, data,
             )
     
     if include_player_velocities:
-        for i in range(5):
+        for c in range(5):
             plt.quiver(
-                data[f'x_att{i}'].values[0], 
-                data[f'y_att{i}'].values[0], 
-                data[f'vx_att{i}'].values[0],
-                data[f'vy_att{i}'].values[0], 
+                data[f'x_att{c}'].values[0], 
+                data[f'y_att{c}'].values[0], 
+                data[f'vx_att{c}'].values[0],
+                data[f'vy_att{c}'].values[0], 
                 angles='xy', scale_units='xy', scale=1, color='black'
                 )
             
-        for i in range(5):
+        for d in range(5):
             plt.quiver(
-                data[f'x_def{i}'].values[0], 
-                data[f'y_def{i}'].values[0], 
-                data[f'vx_def{i}'].values[0],
-                data[f'vy_def{i}'].values[0], 
+                data[f'x_def{d}'].values[0], 
+                data[f'y_def{d}'].values[0], 
+                data[f'vx_def{d}'].values[0],
+                data[f'vy_def{d}'].values[0], 
                 angles='xy', scale_units='xy', scale=1, color='black'
                 )
-        
-        # Annotate defending players
-        for i in range(5):
-            player_id = int(data[f'IDdef_{i}'].values[0]) if f'IDdef_{i}' in data.columns else i
-            plt.text(data[f'x_def{i}'].values[0],data[f'y_def{i}'].values[0], f'{player_id}', fontsize=8)
     
-
     if title:
         plt.title(f"Game {data['gameID'].values[0]} - Attack {data['attackid'].values[0]} - Frame {data['f_id'].values[0]}")
-
-    plt.show()
 
     
     if 'gameID' in data.columns:
