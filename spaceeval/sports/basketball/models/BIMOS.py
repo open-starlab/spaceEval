@@ -53,9 +53,7 @@ class BIMOS():
             score = np.array(pd.read_csv(f,header=None))
         score = score/np.max(score)
 
-        self.fit_params, self.integral_xmin = res.get_params(self.params['player_accel'], 
-                                           self.params['att_reaction_time'], 
-                                           self.params['player_max_speed_att'])
+        self.fit_params = [0.63019408 ,-0.27249153 , 0.24117355]
 
         PBCFa = generate_pitch_control_for_event(data, self.params, self.fit_params, self.integral_xmin)
 
