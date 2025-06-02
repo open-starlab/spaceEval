@@ -1,10 +1,13 @@
 import numpy as np
 import pandas as pd
 import math
-from ..utils import get_residual_param as res
 import importlib.resources as pkg_resources
+import yaml
+
+from ..utils import get_residual_param as res
 from ...basketball import utils
 from ..utils import SportVU_IO as sio
+from  ...basketball import model_parameter
 
 rate_pass_array = [
     0.08303125, 0.25315865924849945, 0.5075870844599968, 0.6399647600091363, 
@@ -33,7 +36,10 @@ class BMOS():
         self.lam = 36.60277280686902
         self.att_reaction_time = 0.1566666417841336
         self.def_reaction_time = 0.4954688947311042
-        self.integral_xmin = np.float64(-1.8181792897808071)
+
+        with pkg_resources.open_text(model_parameter,'params.yaml') as f:
+            params = yaml.safe_load(f)
+        self.integral_xmin = params["integral_xmin"]
 
         self.params = default_model_params(self.accel, self.kappa, self.lam, self.att_reaction_time, self.def_reaction_time)
     
@@ -50,7 +56,7 @@ class BMOS():
             score = np.array(pd.read_csv(f,header=None))
         score = score/np.max(score)
 
-        self.fit_params = [0.63019408 ,-0.27249153 , 0.24117355]
+        self.fit_params = params["fit_params"]
 
         PPCFa = generate_pitch_control_for_event(data, self.params, self.fit_params, self.integral_xmin)
 
