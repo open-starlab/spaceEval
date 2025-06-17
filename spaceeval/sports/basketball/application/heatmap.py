@@ -273,7 +273,7 @@ def plot_heat_map_sequence(model, data, save_path_folder, heatmap=True,
         ax.scatter(*frame_info['dim_ball'], s=30, c="black")
 
         # Highlight ball possessor if enabled
-        if BID and row_cumput['ball_holder'].values[0] > 0 and data['ball_holder'].values[0] < 9:
+        if BID and row_cumput['ball_holder'].values[0] > 0 and row_cumput['ball_holder'].values[0] < 9:
             bid_idx = int(row_cumput['ball_holder'].values[0] - 1)
             ax.scatter(
             row_cumput[f'x_att{bid_idx}'].values[0], 
