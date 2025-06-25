@@ -1,0 +1,10 @@
+accel : 7.758029732151973
+kappa : 1.0220227143365117
+lam : 36.60277280686902
+att_reaction_time : 0.1566666417841336
+def_reaction_time : 0.4954688947311042
+integral_xmin: -1.8181792897808071
+
+player_accel : 0.63019408
+att_reaction_time : -0.27249153
+player_max_speed_att : 0.24117355

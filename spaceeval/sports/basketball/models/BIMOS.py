@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
+import yaml
 import math
-from ..utils import get_residual_param as res
 import importlib.resources as pkg_resources
-from  ...basketball import utils
 
+from  ..utils import get_residual_param as res
+from  ...basketball import utils
+from  ...basketball import model_parameter
 
  # Pass and dribble rate array, at which the ball possessor decides to pass or dribble
 rate_pass_array = [
@@ -25,17 +27,19 @@ dribble_velocity_array = [
     2.2436922778753385, 2.615258991319709, 2.763648245714895, 2.8703517662206273, 3.033426275964569, 
     3.1861691897985542, 3.3521223007518937, 3.473300253216001, 3.5019421441137153, 3.4846248973174854
     ]
-    
+
 
 class BIMOS():
     def __init__(self, data):
-       
-        self.accel = 7.758029732151973
-        self.kappa = 1.0220227143365117
-        self.lam = 36.60277280686902
-        self.att_reaction_time = 0.1566666417841336
-        self.def_reaction_time = 0.4954688947311042
-        self.integral_xmin = np.float64(-1.8181792897808071)
+        with pkg_resources.open_text(model_parameter,'params.yaml') as f:
+            params = yaml.safe_load(f)
+
+        self.accel = float(params["accel"])
+        self.kappa = float(params["kappa"])
+        self.lam = float(params["lam"])
+        self.att_reaction_time = float(params["att_reaction_time"])
+        self.def_reaction_time = float(params["def_reaction_time"])
+        self.integral_xmin = float(params["integral_xmin"])
 
         self.params = default_model_params(self.accel, self.kappa, self.lam, self.att_reaction_time, self.def_reaction_time)
 
@@ -53,10 +57,8 @@ class BIMOS():
             score = np.array(pd.read_csv(f,header=None))
         score = score/np.max(score)
 
-        self.fit_params, self.integral_xmin = res.get_params(self.params['player_accel'], 
-                                           self.params['att_reaction_time'], 
-                                           self.params['player_max_speed_att'])
-
+        self.fit_params = [float(params["player_accel"]), float(params["att_reaction_time"]), float(params["player_max_speed_att"])]
+       
         PBCFa = generate_pitch_control_for_event(data, self.params, self.fit_params, self.integral_xmin)
 
         self.values = PBCFa * score
