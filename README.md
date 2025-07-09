@@ -19,3 +19,20 @@ git clone git@github.com:open-starlab/spaceEval.git
 cd ./spaceEval
 pip install -e .
 ```
+
+## Class Method
+
+- To have the values of probability for all the court (input = one or more line of dataframe, output = .json)
+```
+.get_values(data, json_path=None)
+```
+- To visualize specific frame (input = one line of dataframe,  output = .png)
+```
+.plot_heat_map_frame(data, save_path_folder,
+                     include_player_velocities = True, BID=True, colorbar = True, title=True)
+```
+- To visualize specific sequence, (input = more than one line of dataframe output = .mp4)
+```
+plot_heat_map_sequence(data, save_path_folder,
+                       heatmap=True, EVENT=True, JERSEY=True, BID=False, axis=False, title=True)
+```

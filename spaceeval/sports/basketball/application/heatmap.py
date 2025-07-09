@@ -38,7 +38,7 @@ def plotCourt():
     plt.xlim(0, COURT_SIZE[0])
     plt.ylim(0, COURT_SIZE[1])
 
-def plot_heat_map_frame(save_path_folder, attValue, data,
+def plot_heat_map_frame(data, save_path_folder, attValue,
                   include_player_velocities = True, BID=True, colorbar = True, title=True
                   ,field_dimen = (COURT_SIZE[0],COURT_SIZE[1]), colormap = "Reds"):
 

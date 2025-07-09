@@ -16,7 +16,7 @@ class space_model_basketball:
         """
         self.model_name = model_name
 
-    def plot_heat_map_frame(self, save_path_folder, data, *args, **kwargs):
+    def plot_heat_map_frame(self, data, save_path_folder, *args, **kwargs):
 
         if self.model_name == "BIMOS":
             attValues = BIMOS(data).values
@@ -24,7 +24,7 @@ class space_model_basketball:
         if self.model_name == "BMOS":
             attValues = BMOS(data).values
 
-        plot_heat_map_frame(save_path_folder, attValues, data, *args, **kwargs)
+        plot_heat_map_frame(data, save_path_folder, attValues, *args, **kwargs)
         
 
     def plot_heat_map_sequence(self, data, save_path_folder,*args, **kwargs):
