@@ -11,6 +11,7 @@ import datetime
 from ..utils import SportVU_IO as sio
 import glob
 import cv2
+from joblib import Parallel, delayed
 
 COURT_SIZE = (28, 15)  # Court dimensions in meters
 EVENT_LABEL = 1
@@ -171,164 +172,150 @@ def movie_from_images(image_files, output_file, frames_with_heatmap, fps=8, heat
         print("Figures directory removed")
 
 
-def plot_heat_map_sequence(model, data, save_path_folder, heatmap=True, 
+def extract_date_info(gamename):
+    parts = gamename.split('_')
+
+    day = int(parts[1])
+    month = int(parts[0])
+    year = int(parts[2])
+    
+    suffix = 'th' if 11 <= day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+    day_formatted = f"{day}{suffix}"
+    
+    month_name = datetime.date(1900, month, 1).strftime('%b')
+    
+    return day_formatted, month_name, str(year)
+
+def process_frame(i, data, model, save_path_folder, heatmap, only_event, EVENT, JERSEY, BID, axis, title, field_dimen, team_name_O, team_name_D, date, month, year, game_id, s_id):
+    row_cumput = data.iloc[[i]].copy()
+
+    att_x = [row_cumput[f'x_att{j}'].values[0] for j in range(5)]
+    att_y = [row_cumput[f'y_att{j}'].values[0] for j in range(5)]
+    dim_att = [np.array(att_x), np.array(att_y)]
+
+    def_x = [row_cumput[f'x_def{j}'].values[0] for j in range(5)]
+    def_y = [row_cumput[f'y_def{j}'].values[0] for j in range(5)]
+    dim_def = [np.array(def_x), np.array(def_y)]
+
+    dim_ball = np.array([row_cumput['x_ball'].values[0], row_cumput['y_ball'].values[0]])
+
+    frame_info = {
+        'dim_att': dim_att,
+        'dim_def': dim_def,
+        'dim_ball': dim_ball
+    }
+
+    if only_event:
+        if row_cumput['event_label'].values[0] not in [0, 4, 8]:
+            if model == "BIMOS":
+                frame_info['attValue'] = BIMOS(row_cumput).values
+            else:
+                frame_info['attValue'] = BMOS(row_cumput).values
+        else:
+            frame_info['attValue'] = [[0] * 28 for _ in range(15)]
+    else:
+        if row_cumput['ball_hold'].values[0] == 0:
+            frame_info['attValue'] = [[0] * 28 for _ in range(15)]
+        else:
+            if model == "BIMOS":
+                frame_info['attValue'] = BIMOS(row_cumput).values
+            else:
+                frame_info['attValue'] = BMOS(row_cumput).values
+
+    if EVENT:
+        frame_info['event_label'] = row_cumput['event_label'].values[0]
+
+    if JERSEY:
+        frame_info['jersey_number'] = row_cumput.filter(regex='^jersey_', axis=1).iloc[0].tolist()
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    fig.subplots_adjust(left=0.01, bottom=0.08, right=0.99, top=0.95)
+    plt.text(14, -2, '[m]', ha='center')
+
+    if heatmap:
+        ax.imshow(frame_info['attValue'], cmap='Reds', vmin=0., vmax=1.,
+                  extent=(0, field_dimen[0], 0, field_dimen[1]), alpha=0.8)
+
+    ax.scatter(*frame_info['dim_att'], s=100, edgecolor='r', c="white")
+    ax.scatter(*frame_info['dim_def'], s=100, edgecolor='b', c="white")
+    ax.scatter(*frame_info['dim_ball'], s=30, c="black")
+
+    if BID and row_cumput['ball_holder'].values[0] > 0 and row_cumput['ball_holder'].values[0] < 9:
+        bid_idx = int(row_cumput['ball_holder'].values[0] - 1)
+        ax.scatter(
+            row_cumput[f'x_att{bid_idx}'].values[0],
+            row_cumput[f'y_att{bid_idx}'].values[0],
+            s=60, facecolors='none', edgecolors='black'
+        )
+
+    if EVENT and 'event_label' in frame_info:
+        ax.text(*frame_info['dim_ball'], f"{frame_info['event_label']}", fontsize=8)
+
+    if JERSEY and 'jersey_number' in frame_info:
+        for j in range(10):
+            jersey_number = int(frame_info["jersey_number"][j])
+            if j < 5:
+                x, y = frame_info['dim_att'][0][j], frame_info['dim_att'][1][j]
+            else:
+                x, y = frame_info['dim_def'][0][j-5], frame_info['dim_def'][1][j-5]
+            ax.text(x, y, f'{jersey_number}', fontsize=8, ha='center', va='center')
+
+    fid_str = str(i).zfill(3)
+    if title:
+        ax.set_title('')
+        ax.text(0.08, 1.025, team_name_O, color='red', fontsize=12, ha='center', transform=ax.transAxes)
+        ax.text(0.17, 1.025, 'vs.', color='black', fontsize=12, ha='center', transform=ax.transAxes)
+        ax.text(0.25, 1.025, team_name_D, color='blue', fontsize=12, ha='center', transform=ax.transAxes)
+        ax.text(0.65, 1.025, f"{date} {month}. {year} - Frame {fid_str}",
+                color='black', fontsize=12, ha='center', transform=ax.transAxes)
+    else:
+        ax.set_title(f'Game {game_id} - Attack {s_id} - Frame {fid_str}')
+
+    if not axis:
+        plt.xticks([])
+        plt.yticks([])
+
+    plotCourt()
+
+    if not os.path.exists("figures"):
+        os.makedirs("figures")
+    img_path = f"figures/frame_{game_id}_{s_id}_{fid_str}.png"
+    plt.savefig(img_path)
+    plt.close()
+    return img_path
+
+def plot_heat_map_sequence(model, data, save_path_folder, heatmap=True, only_event=True,
     EVENT=True, JERSEY=True, BID=False, axis=False, title=True, field_dimen=(COURT_SIZE[0],COURT_SIZE[1])):
     """
-    Plots animation for a specific scene.
+    Plots animation for a specific scene, using parallel processing for frames.
     """
-    
-    def extract_date_info(gamename):
-        parts = gamename.split('_')
-
-        day = int(parts[1])
-        month = int(parts[0])
-        year = int(parts[2])
-        
-        suffix = 'th' if 11 <= day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
-        day_formatted = f"{day}{suffix}"
-        
-        month_name = datetime.date(1900, month, 1).strftime('%b')
-        
-        return day_formatted, month_name, str(year)
-    
-    game_id = data['gameID'].values[0]
-    s_id = data['attackid'].values[0]
-
-    # Obtain date info
     gamename = data['gamename'].values[0]
     date, month, year = extract_date_info(gamename)
-
-    # Obtain team info
+    game_id = data['game'].values[0]
+    s_id = data['attackid'].values[0]
     team_id_O = data['team_O'].values[0]
     team_id_D = data['team_D'].values[0]
     team_name_O = sio.load_team_name(team_id_O)
     team_name_D = sio.load_team_name(team_id_D)
 
     frames_with_heatmap = []
-    for i in tqdm(range(len(data))):
+    for i in range(len(data)):
         row_cumput = data.iloc[[i]].copy()
-
-        att_x = []
-        att_y = []
-        dim_att = []
-        for j in range(5):  # 5 attaquants
-            x = row_cumput[f'x_att{j}'].values[0]
-            y = row_cumput[f'y_att{j}'].values[0]
-            att_x.append(x)
-            att_y.append(y)
-
-        dim_att = [np.array(att_x), np.array(att_y)]
-
-        def_x = []
-        def_y = []
-        dim_def = []
-        for j in range(5):
-            x = row_cumput[f'x_def{j}'].values[0]
-            y = row_cumput[f'y_def{j}'].values[0]
-            def_x.append(x)
-            def_y.append(y)
-
-        dim_def = [np.array(def_x), np.array(def_y)]
-        
-        dim_ball = []
-        x = row_cumput['x_ball'].values[0]
-        y = row_cumput['y_ball'].values[0]
-        dim_ball = np.array([x, y])
-
-        frame_info = {
-            'dim_att': dim_att,
-            'dim_def': dim_def,
-            'dim_ball': dim_ball
-        }
-
-        if row_cumput['event_label'].values[0] not in [0, 4, 8]:
+        if only_event and row_cumput['event_label'].values[0] not in [0, 4, 8]:
             frames_with_heatmap.append(i)
-            if model == "BIMOS":
-                frame_info['attValue'] = BIMOS(row_cumput).values
-            
-            else:
-                frame_info['attValue'] = BMOS(row_cumput).values
-        else:
-            frame_info['attValue'] = [[0] * 28 for _ in range(15)]
 
-        if EVENT:
-            frame_info['event_label'] = row_cumput['event_label'].values[0]
-
-        if JERSEY:
-            frame_info['jersey_number'] = row_cumput.filter(regex='^jersey_', axis=1).iloc[0].tolist()
-
-        # Create the figure and set up basic layout
-        fig, ax = plt.subplots(figsize=(6, 5))
-        fig.subplots_adjust(left=0.01, bottom=0.08, right=0.99, top=0.95)
-        plt.text(14, -2, '[m]', ha='center')
-        
-        # Plot heatmap if enabled
-        if heatmap:
-            ax.imshow(frame_info['attValue'], cmap='Reds', vmin=0., vmax=1., 
-                 extent=(0, field_dimen[0], 0, field_dimen[1]), alpha=0.9)
-        
-        # Plot players and ball
-        ax.scatter(*frame_info['dim_att'], s=100, edgecolor='r', c="white")
-        ax.scatter(*frame_info['dim_def'], s=100, edgecolor='b', c="white")
-        ax.scatter(*frame_info['dim_ball'], s=30, c="black")
-
-        # Highlight ball possessor if enabled
-        if BID and row_cumput['ball_holder'].values[0] > 0 and row_cumput['ball_holder'].values[0] < 9:
-            bid_idx = int(row_cumput['ball_holder'].values[0] - 1)
-            ax.scatter(
-            row_cumput[f'x_att{bid_idx}'].values[0], 
-            row_cumput[f'y_att{bid_idx}'].values[0],
-            s=60, facecolors='none', edgecolors='black'
-            )
-
-        # Add event labels if enabled
-        if EVENT and 'event_label' in frame_info:
-            ax.text(*frame_info['dim_ball'], f"{frame_info['event_label']}", fontsize=8)
-
-        # Add jersey numbers if enabled
-        if JERSEY and 'jersey_number' in frame_info:
-            for j in range(10):
-                jersey_number = int(frame_info["jersey_number"][j])
-                if j < 5:  # Attacking team
-                    x, y = frame_info['dim_att'][0][j], frame_info['dim_att'][1][j]
-                else:  # Defending team
-                    x, y = frame_info['dim_def'][0][j-5], frame_info['dim_def'][1][j-5]
-                
-                ax.text(x, y, f'{jersey_number}', 
-                       fontsize=8, ha='center', va='center')
-
-    
-        fid_str = str(i).zfill(3)
-        # Add title based on configuration
-        if title:
-            # Detailed title with team names and date
-            ax.set_title('')
-            ax.text(0.08, 1.025, team_name_O, color='red', fontsize=12, ha='center', transform=ax.transAxes)
-            ax.text(0.17, 1.025, 'vs.', color='black', fontsize=12, ha='center', transform=ax.transAxes)
-            ax.text(0.25, 1.025, team_name_D, color='blue', fontsize=12, ha='center', transform=ax.transAxes)
-            ax.text(0.65, 1.025, f"{date} {month}. {year} - Frame {fid_str}", 
-               color='black', fontsize=12, ha='center', transform=ax.transAxes)
-        else:
-            # Simple title with game info and event type
-            ax.set_title(f'Game {game_id} - Attack {s_id} - Frame {fid_str}')
-
-        # Hide axis if not needed
-        if not axis:
-            plt.xticks([])
-            plt.yticks([])
-
-        # Save the frame and close the plot
-# Add the court background
-        plotCourt()
-
-        if not os.path.exists("figures"):
-            os.makedirs("figures")
-        plt.savefig(f"figures/frame_{game_id}_{s_id}_{fid_str}.png")
-        plt.close()
+    # Barre de chargement tqdm sur le traitement des frames
+    indices = list(range(len(data)))
+    image_files = Parallel(n_jobs=-1)(
+        delayed(process_frame)(
+            i, data, model, save_path_folder, heatmap, only_event, EVENT, JERSEY, BID, axis, title, field_dimen,
+            team_name_O, team_name_D, date, month, year, game_id, s_id
+        )
+        for i in tqdm(indices, desc="computation progress", unit="frame")
+    )
 
     image_files = sorted(glob.glob(f"figures/frame_{game_id}_{s_id}_*.png"))
     print(image_files)
     video_name = f"{save_path_folder}/space_evaluation_{game_id}_{s_id}.mp4"
     movie_from_images(image_files=image_files, output_file=video_name, frames_with_heatmap = frames_with_heatmap)
 
-    
