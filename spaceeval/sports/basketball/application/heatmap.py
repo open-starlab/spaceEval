@@ -138,7 +138,7 @@ def plot_heat_map_frame(data, save_path_folder, attValue,
     plt.close(fig)
 
 
-def movie_from_images(image_files, output_file, frames_with_heatmap, fps=8, heatmap_duration_multiplier=10):
+def movie_from_images(image_files, output_file, frames_with_heatmap, fps=10, heatmap_duration_multiplier=10):
     frame = cv2.imread(image_files[0])
     height, width, _ = frame.shape
 
@@ -233,7 +233,7 @@ def process_frame(i, data, model, save_path_folder, heatmap, only_event, EVENT, 
     plt.text(14, -2, '[m]', ha='center')
 
     if heatmap:
-        ax.imshow(frame_info['attValue'], cmap='Reds', vmin=0., vmax=1.,
+        ax.imshow(frame_info['attValue'], cmap='Reds', vmin=0.15, vmax=1.,
                   extent=(0, field_dimen[0], 0, field_dimen[1]), alpha=0.8)
 
     ax.scatter(*frame_info['dim_att'], s=100, edgecolor='r', c="white")
