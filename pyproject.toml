@@ -24,7 +24,8 @@ dependencies = [
     "matplotlib",
     "scipy",
     "tqdm",
-    "opencv-python"
+    "opencv-python",
+    "joblib",
 ]
 
 license = { text = "Apache License 2.0" }
