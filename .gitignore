@@ -8,4 +8,5 @@ spaceEval/sports/basketball/models/__pycache__
 spaceEval/sports/basketball/utils/__pycache__
 dist/
 __pycache__/
+testing/
 *.pyc
