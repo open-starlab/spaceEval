@@ -8,6 +8,9 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
+import importlib.resources as pkg_resources
+import spaceeval.sports.soccer.obso.c_obso_repo as c_repo
+
 from .c_obso_repo import obso_player as obs
 
 def calculate_obso_fc(Metrica_df, tracking_home, tracking_away):
@@ -63,11 +66,13 @@ def calculate_obso_fc(Metrica_df, tracking_home, tracking_away):
     GK_numbers = [mio.find_goalkeeper(tracking_home), mio.find_goalkeeper(tracking_away)]
 
     # load control and transition model
-    EPV = mepv.load_EPV_grid('./spaceeval/sports/soccer/obso/c_obso_repo/EPV_grid.csv')
-    EPV = EPV / np.max(EPV)
-    Trans_df = pd.read_csv('./spaceeval/sports/soccer/obso/c_obso_repo/Transition_gauss.csv', header=None)
-    Trans = np.array((Trans_df))
-    Trans = Trans / np.max(Trans)
+    with pkg_resources.path(c_repo, 'EPV_grid.csv') as csv_path:
+        EPV = mepv.load_EPV_grid(csv_path)
+        EPV = EPV / np.max(EPV)
+    with pkg_resources.path(c_repo, 'Transition_gauss.csv') as csv_path:
+        Trans_df = pd.read_csv(csv_path, header=None)
+        Trans = np.array((Trans_df))
+        Trans = Trans / np.max(Trans)
 
     # set OBSO data
     obso = np.zeros((len(Metrica_df), 32, 50))
