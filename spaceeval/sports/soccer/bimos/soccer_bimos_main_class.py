@@ -47,17 +47,24 @@ class soccer_bimos:
                 if self.testing_mode:
                     results[key] = calculate_bimos_fc(event_dict[key].head(5), tracking_home_dict[key], tracking_away_dict[key])
                 else:
-                    results[key] = calculate_bimos_fc(event_dict[key], tracking_home_dict[key], tracking_away_dict[key])
+                    try:
+                        results[key] = calculate_bimos_fc(event_dict[key], tracking_home_dict[key], tracking_away_dict[key])
+                    except Exception as e:
+                        print(f"Error processing match {key}: {e}")
+                        results[key] = None
             else:
                 print(f"Tracking data for {key} not found in home or away datasets.")
         if self.out_path:
             os.makedirs(self.out_path+'/'+'bimos', exist_ok=True)
             for key in results.keys():
+                if results[key] is None:
+                    continue
+                #save results[key] which is a tuple of 5 elements
                 results[key][0].to_pickle(self.out_path+'/'+'bimos'+'/'+f'{key}_home_bimos.pkl')
                 results[key][1].to_pickle(self.out_path+'/'+'bimos'+'/'+f'{key}_away_bimos.pkl')
                 results[key][2].to_pickle(self.out_path+'/'+'bimos'+'/'+f'{key}_home_onball_bimos.pkl')
                 results[key][3].to_pickle(self.out_path+'/'+'bimos'+'/'+f'{key}_away_onball_bimos.pkl')
-                np.save(self.out_path+'/'+'bimos'+'/'+f'{key}_PPCF_dict.npy', results[key][4])
+                np.save(self.out_path+'/'+'bimos'+'/'+f'{key}_PBCF_dict.npy', results[key][4])
 
         return results
 
