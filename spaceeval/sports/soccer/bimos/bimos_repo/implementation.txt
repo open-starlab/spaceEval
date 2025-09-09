@@ -1,0 +1,54 @@
+
+Differences between generate_pbcf_for_event(...) and generate_pitch_control_for_event(...)
+
+What’s new / changed
+--------------------
+- Purpose of the per-cell calc:
+  * Old: calls calculate_pitch_control_at_target(...) (endpoint control only).
+  * New: calls calculate_pbcf_pass(...) / calculate_pbcf_dribble(...), which integrate along the ball path (en-route interceptions) before arrival.
+
+- New arguments:
+  * mode: "pass" | "dribble" | "mix" to pick the component(s) used.
+  * mix_rule: how to combine pass/dribble when mode="mix" (e.g., "distance" heuristic or "equal").
+  * return_components: optionally return separate pass and dribble surfaces in addition to the mixed surface.
+
+- Outputs:
+  * Old: (PPCFa, xgrid, ygrid, attacking_players).
+  * New: Same by default, but if return_components=True you also get (PBCFa_pass, PBCFa_dribb).
+  * Note: With mode="mix", the implied defense surface 1 − PBCFa is only exact if your mixer preserves normalization; otherwise treat it as an approximation.
+
+- Per-cell loop body:
+  * Old: single call → att_control.
+  * New: compute pass and/or dribble PBCF components, then mix via _mix_weights(...).
+
+- Ball travel modeling:
+  * Old: endpoint control doesn’t use a ball path.
+  * New: PBCF functions compute a ball-travel time from ball_start_pos → target, step a time grid out to T_arrival + max_int_time, and integrate capture on the path.
+
+- Attacker set differences:
+  * Old: all attackers eligible by default.
+  * New: 
+    - pass: all attackers (optionally exclude the possessor if you wire that in).
+    - dribble: only the possessor (fallback = closest attacker to the ball if possessor_id isn’t provided).
+
+- Numerical scheme:
+  * Old: endpoint capture probability via arrival-time distributions.
+  * New: differential accumulation across time steps (still uses the same soccer params—reaction_time, tti_sigma, lambda_att/def, int_dt, etc.).
+
+- Consistency checks:
+  * Old: common to sanity-check that att + def ≈ 1 per cell.
+  * New: feasible for pure pass or pure dribble; with mix you’re combining two modeled processes, so strict equality may not hold everywhere.
+
+What’s intentionally unchanged
+-------------------------------
+- Inputs mirrored: event_id, events, tracking_home/away, params, GK_numbers, field_dimen, n_grid_cells_x, offsides.
+- Event snapshot: uses Start Frame, Team, Start X/Y just like before.
+- Grid construction: identical xgrid/ygrid build.
+- Player initialisation & offside handling: same calls/flow.
+- Return shape & ordering: kept identical so you can drop-in replace.
+
+Implementation notes
+---------------------
+- Helpers required: calculate_pbcf_pass, calculate_pbcf_dribble, plus tiny internals like _ball_travel_time_soccer, _ball_pos_along_path, and the _integrate_pbcf(...) loop.
+- Performance: PBCF does extra work per cell (time stepping). If you map many frames, consider caching player time-to-intercept primitives or lowering n_grid_cells_x / increasing int_dt for speed.
+- Tuning knobs: max_int_time, int_dt, and the pass/dribble mixing rule are the main levers that trade realism vs. runtime.

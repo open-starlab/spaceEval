@@ -1,6 +1,6 @@
 class Space_Model:
     basketball_space_model = ['BIMOS','BMOS']
-    soccer_space_model = ['soccer_OBSO']
+    soccer_space_model = ['soccer_OBSO','soccer_BIMOS']
     other_model = []
 
     def __new__(cls, space_model, *args, **kwargs):
