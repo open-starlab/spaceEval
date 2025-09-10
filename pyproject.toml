@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openstarlab-spaceEval"
-version = "0.0.6"
+version = "0.0.7"
 description = "openstarlab space eval package"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -38,6 +38,7 @@ where = ["."]
 
 [tool.setuptools.package-data]
 "spaceeval.sports.soccer.obso.c_obso_repo" = ["*.csv"]
+"spaceeval.sports.basketball.model_parameter" = ["params.yaml"]
 
 [project.urls]
 Homepage = "https://github.com/open-starlab/"
