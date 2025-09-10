@@ -39,6 +39,7 @@ where = ["."]
 [tool.setuptools.package-data]
 "spaceeval.sports.soccer.obso.c_obso_repo" = ["*.csv"]
 "spaceeval.sports.basketball.model_parameter" = ["params.yaml"]
+"spaceeval.sports.basketball.utils" = ["scoremodel_basket.csv"]
 
 [project.urls]
 Homepage = "https://github.com/open-starlab/"
