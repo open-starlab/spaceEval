@@ -12,6 +12,38 @@ from . import Metrica_Velocities as mvel
 from . import Metrica_PitchControl as mpc
 from . import Metrica_EPV as mepv
 
+def calc_bimos(PPCF, Transition, Score, tracking, attack_direction=0):
+    # calculate bimos in single frame
+    # PPCF, Score : 50 * 32
+    # Transitino : 100 * 64
+    Transition = np.array((Transition))
+    Score = np.array((Score))
+    ball_grid_x = int((tracking['ball_x']+ 52.5) // (105/50))
+    ball_grid_y = int((tracking['ball_y']+ 34) //  (68/32))
+    
+    # When out of the pitch
+    if ball_grid_x < 0:
+        ball_grid_x = 0
+    elif ball_grid_x > 49:
+        ball_grid_x = 49
+    if ball_grid_y < 0:
+        ball_grid_y = 0
+    elif ball_grid_y > 31:
+        ball_grid_y = 31
+    
+    Transition = Transition[31-ball_grid_y:63-ball_grid_y, 49-ball_grid_x:99-ball_grid_x]
+    
+    if attack_direction < 0:
+        Score = np.fliplr(Score)
+    elif attack_direction > 0:
+        Score = Score
+    else:
+        print("input attack direction is 1 or -1")
+
+    bimos = PPCF * Score
+
+    return bimos, Transition
+
 
 def calc_obso(PPCF, Transition, Score, tracking, attack_direction=0):
     # calculate obso in single frame
