@@ -99,7 +99,7 @@ def calculate_bimos_fc(Metrica_df, tracking_home, tracking_away):
             obso[event_num] = np.zeros((32, 50))
             PBCF_dict[event_num] = np.zeros((32, 50))
             continue
-        obso[event_num], _ = obs.calc_obso(PBCF, Trans, EPV, tracking_home.loc[frame], attack_direction=direction)
+        obso[event_num], _ = obs.calc_bimos(PBCF, Trans, EPV, tracking_home.loc[frame], attack_direction=direction)
 
     home_obso, away_obso = obs.calc_player_evaluate_match(obso, Metrica_df, tracking_home, tracking_away)
 
