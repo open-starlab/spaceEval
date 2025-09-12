@@ -109,7 +109,7 @@ def plot_pitch( field_dimen = (106.0,68.0), field_color ='green', linewidth=2, m
     ax.set_axisbelow(True)
     return fig,ax
 
-def plot_frame( hometeam, awayteam, figax=None, team_colors=('r','b'), field_dimen = (106.0,68.0), include_player_velocities=False, Playermarkersize=10, PlayerAlpha=0.7, annotate=False ):
+def plot_frame( hometeam, awayteam, figax=None, team_colors=('r','b'), field_dimen = (106.0,68.0), include_player_velocities=False, include_ball_position=False, Playermarkersize=10, PlayerAlpha=0.7, annotate=False ):
     """ plot_frame( hometeam, awayteam )
     
     Plots a frame of Metrica tracking data (player positions and the ball) on a football pitch. All distances should be in meters.
@@ -147,7 +147,8 @@ def plot_frame( hometeam, awayteam, figax=None, team_colors=('r','b'), field_dim
         if annotate:
             [ ax.text( team[x]+0.5, team[y]+0.5, x.split('_')[1], fontsize=10, color=color  ) for x,y in zip(x_columns,y_columns) if not ( np.isnan(team[x]) or np.isnan(team[y]) ) ] 
     # plot ball
-    ax.plot( hometeam['ball_x'], hometeam['ball_y'], 'ko', markersize=6, alpha=1.0, linewidth=0)
+    if include_ball_position:
+        ax.plot( hometeam['ball_x'], hometeam['ball_y'], 'ko', markersize=6, alpha=1.0, linewidth=0)
     return fig,ax
     
 def save_match_clip(hometeam,awayteam, fpath, fname='clip_test', figax=None, frames_per_second=25, team_colors=('r','b'), field_dimen = (106.0,68.0), include_player_velocities=False, Playermarkersize=10, PlayerAlpha=0.7):
@@ -257,7 +258,7 @@ def plot_events( events, figax=None, field_dimen = (106.0,68), indicators = ['Ma
             ax.text( row['Start X'], row['Start Y'], textstring, fontsize=10, color=color)
     return fig,ax
 
-def plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away, PPCF, alpha = 0.7, include_player_velocities=False, annotate=False, field_dimen = (106.0,68)):
+def plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away, PPCF, alpha = 0.7, include_player_velocities=False, annotate=False, field_dimen = (106.0,68), plot_heatmap=True):
     """ plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away, PPCF )
     
     Plots the pitch control surface at the instant of the event given by the event_id. Player and ball positions are overlaid.
@@ -288,6 +289,21 @@ def plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away
     
     # plot frame and event
     fig,ax = plot_pitch(field_color='white', field_dimen = field_dimen)
+    if include_player_velocities:
+        if pass_frame-30 > 0: # i.e. if we have 30 frames of data before the event
+            previous_frame_home = tracking_home.loc[pass_frame-30]
+            previous_frame_away = tracking_away.loc[pass_frame-30]
+            for i in range(1,17):
+                tracking_home.at[pass_frame,'Home_{}_vx'.format(i)] = (tracking_home.loc[pass_frame,'Home_{}_x'.format(i)] - previous_frame_home['Home_{}_x'.format(i)])/1.2
+                tracking_home.at[pass_frame,'Home_{}_vy'.format(i)] = (tracking_home.loc[pass_frame,'Home_{}_y'.format(i)] - previous_frame_home['Home_{}_y'.format(i)])/1.2
+                tracking_away.at[pass_frame,'Away_{}_vx'.format(i)] = (tracking_away.loc[pass_frame,'Away_{}_x'.format(i)] - previous_frame_away['Away_{}_x'.format(i)])/1.2
+                tracking_away.at[pass_frame,'Away_{}_vy'.format(i)] = (tracking_away.loc[pass_frame,'Away_{}_y'.format(i)] - previous_frame_away['Away_{}_y'.format(i)])/1.2  
+            #replace any NaN velocities with zero
+            tracking_home.fillna(0,inplace=True)
+            tracking_away.fillna(0,inplace=True)
+        else: # if we don't have 30 frames of data, just set velocities to zero
+            print("Not enough data to calculate player velocities - setting include_player_velocities to False")
+            include_player_velocities = False
     plot_frame( tracking_home.loc[pass_frame], tracking_away.loc[pass_frame], figax=(fig,ax), PlayerAlpha=alpha, include_player_velocities=include_player_velocities, annotate=annotate )
     plot_events( events.loc[event_id:event_id], figax = (fig,ax), indicators = ['Marker','Arrow'], annotate=False, color= 'k', alpha=1 )
     
@@ -296,7 +312,8 @@ def plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away
         cmap = 'bwr'
     else:
         cmap = 'bwr_r'
-    ax.imshow(np.flipud(PPCF), extent=(-field_dimen[0]/2., field_dimen[0]/2., -field_dimen[1]/2., field_dimen[1]/2.),interpolation='spline36',vmin=0.0,vmax=1.0,cmap=cmap,alpha=0.5)
+    if plot_heatmap:
+        ax.imshow(np.flipud(PPCF), extent=(-field_dimen[0]/2., field_dimen[0]/2., -field_dimen[1]/2., field_dimen[1]/2.),interpolation='spline36',vmin=0.0,vmax=1.0,cmap=cmap,alpha=0.5)
 
     return fig,ax
 
