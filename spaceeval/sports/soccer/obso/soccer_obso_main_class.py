@@ -68,7 +68,7 @@ class soccer_obso:
 
         return results
 
-    def vis_obso(self, event_id, events_data, tracking_home, tracking_away, PPCF,out_path):
+    def vis_obso(self, event_id, events_data, tracking_home, tracking_away, PPCF, with_vel=False, plot_heatmap=True, out_path=None):
         #read event_data, tracking_home, tracking_away if it is a path
         if not isinstance(events_data, pd.DataFrame):
             events_data = pd.read_csv(events_data)
@@ -79,11 +79,16 @@ class soccer_obso:
         if not isinstance(PPCF, dict):
             PPCF = np.load(PPCF, allow_pickle=True).item()
 
-        fig, ax = plot_pitchcontrol_for_event(event_id, events_data, tracking_home, tracking_away, PPCF[event_id])
+        fig, ax = plot_pitchcontrol_for_event(event_id, events_data, tracking_home, tracking_away, PPCF[event_id], include_player_velocities=with_vel, plot_heatmap=plot_heatmap)
+        tag=''
+        if with_vel:
+            tag+='_withvel'
+        if plot_heatmap:
+            tag+='_heatmap'
         if self.out_path:
             os.makedirs(self.out_path+"/vis_obso", exist_ok=True)
-            fig.savefig(os.path.join(self.out_path, "vis_obso", f'obso_event_{event_id}.png'))
+            fig.savefig(os.path.join(self.out_path, "vis_obso", f'obso_event_{event_id}{tag}.png'))
         elif out_path:
             os.makedirs(out_path+"/vis_obso", exist_ok=True)
-            fig.savefig(os.path.join(out_path, "vis_obso", f'obso_event_{event_id}.png'))
+            fig.savefig(os.path.join(out_path, "vis_obso", f'obso_event_{event_id}{tag}.png'))
         return fig, ax
