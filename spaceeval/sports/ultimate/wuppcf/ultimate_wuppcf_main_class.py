@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from .config import get_model_params, get_provider_settings
+from .config import get_provider_settings
 from .get_wuppcf_value import WUPPCFResult, calculate_wuppcf
 from .obso_repo import Metrica_Viz as mviz
 
@@ -22,7 +22,6 @@ class ultimate_wuppcf:
         provider: str = "UltimateTrack",
         out_path: Union[str, os.PathLike, None] = None,
         testing_mode: bool = False,
-        show_progress: bool = True,
     ):
         self.event_data = event_data
         self.tracking_home = tracking_home
@@ -30,7 +29,6 @@ class ultimate_wuppcf:
         self.provider = provider
         self.out_path = Path(out_path) if out_path else None
         self.testing_mode = testing_mode
-        self.show_progress = show_progress
 
     @staticmethod
     def _extract_match_key(path: Union[os.PathLike, str]) -> str:
@@ -108,8 +106,7 @@ class ultimate_wuppcf:
 
         results: Dict[str, WUPPCFResult] = {}
         iterator: Iterable[str] = match_ids
-        if self.show_progress and len(match_ids) > 1:
-            iterator = tqdm(match_ids, desc="Matches", leave=False)
+        iterator = tqdm(match_ids, desc="Matches", leave=False)
 
         for match_id in iterator:
             # Load DataFrames from file paths
@@ -122,7 +119,6 @@ class ultimate_wuppcf:
                 tracking_home_path,
                 tracking_away_path,
                 provider=self.provider,
-                use_tqdm=self.show_progress and len(match_ids) == 1,
             )
             results[match_id] = result
 
@@ -133,35 +129,42 @@ class ultimate_wuppcf:
 
     def _persist_result(self, match_id: str, result: WUPPCFResult) -> None:
         assert self.out_path is not None
-        data_dir = self.out_path / "wuppcf"
+        data_dir = self.out_path
         data_dir.mkdir(parents=True, exist_ok=True)
 
-        np.save(data_dir / f"{match_id}_wUPPCF.npy", result.wuppcf)
-        np.save(data_dir / f"{match_id}_player_wUPPCF.npy", result.player_wuppcf)
+        # Create subdirectories if they don't exist
+        wuppcf_dir = data_dir / "wUPPCF"
+        player_wuppcf_dir = data_dir / "player_wUPPCF"
+
+        wuppcf_dir.mkdir(parents=True, exist_ok=True)
+        player_wuppcf_dir.mkdir(parents=True, exist_ok=True)
+
+        np.save(wuppcf_dir / f"{match_id}.npy", result.wuppcf)
+        np.save(player_wuppcf_dir / f"{match_id}.npy", result.player_wuppcf)
 
     def vis_wuppcf(
         self,
         results: Dict[str, WUPPCFResult],
-    ):
+    ) -> None:
         settings = get_provider_settings(self.provider)
-        params = get_model_params(self.provider)
-        field_dimen = settings.field_dimen
 
         for match_id, result in results.items():
+            # Create video directory if it doesn't exist
+            video_dir = self.out_path / "video" if self.out_path else Path(".")
+            video_dir.mkdir(parents=True, exist_ok=True)
+
             mviz.save_match_clip_OBSO(
                 hometeam=result.tracking_home_metric,
                 awayteam=result.tracking_away_metric,
                 wUPPCF=result.wuppcf,
-                fpath=self.out_path if self.out_path else ".",
-                fname=f"{match_id}_wUPPCF",
+                fpath=self.out_path / "video" if self.out_path else ".",
+                fname=match_id,
                 figax=None,
                 frames_per_second=settings.fps,
-                field_dimen=field_dimen,
-                include_player_velocities=True,
+                field_dimen=settings.field_dimen,
                 PlayerMarkerSize=10,
                 vmin=0,
                 vmax=1,
                 colorbar=True,
                 cm="Blues",
-                grid_size=params["grid_size"],
             )
