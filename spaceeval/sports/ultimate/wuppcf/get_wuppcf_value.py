@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -36,20 +36,11 @@ def _prepare_removed_players(events: pd.DataFrame) -> pd.DataFrame:
     return removed_players
 
 
-def _iterate_with_progress(
-    iterable: Iterable[Tuple[int, float]], use_tqdm: bool, total: int
-):
-    if use_tqdm:
-        return tqdm(iterable, total=total, desc="Calculating wUPPCF", leave=False)
-    return iterable
-
-
 def calculate_wuppcf(
     events_path: str,
     tracking_home_path: str,
     tracking_away_path: str,
     provider: str = "UltimateTrack",
-    use_tqdm: bool = False,
 ) -> WUPPCFResult:
     """
     Calculate Ultimate Frisbee weighted Pitch Control Field (wUPPCF).
@@ -83,24 +74,18 @@ def calculate_wuppcf(
     settings = get_provider_settings(provider)
     params = get_model_params(provider)
     field_dimen = settings.field_dimen
-    grid_size_field_dimen = (
-        field_dimen[0] / params["grid_size"],
-        field_dimen[1] / params["grid_size"],
-    )
 
     # Preserve raw coordinate space for ball and stalling positions
     events_raw = events.copy()
     tracking_away_raw = tracking_away.copy()
 
     # Convert tracking and event data to metric coordinates for pitch control
-    events_metric = mio.to_metric_coordinates(
-        events.copy(), field_dimen=field_dimen, grid_size=params["grid_size"]
-    )
+    events_metric = mio.to_metric_coordinates(events.copy(), field_dimen=field_dimen)
     tracking_home_metric = mio.to_metric_coordinates(
-        tracking_home.copy(), field_dimen=field_dimen, grid_size=params["grid_size"]
+        tracking_home.copy(), field_dimen=field_dimen
     )
     tracking_away_metric = mio.to_metric_coordinates(
-        tracking_away.copy(), field_dimen=field_dimen, grid_size=params["grid_size"]
+        tracking_away.copy(), field_dimen=field_dimen
     )
 
     tracking_home_metric = mvel.calc_player_velocities(
@@ -117,11 +102,10 @@ def calculate_wuppcf(
     player_frame_maps: List[Dict[str, np.ndarray]] = [{} for _ in range(num_events)]
     defending_removed = np.full(num_events, np.nan, dtype=float)
 
-    last_attacking_players = []
-    last_defending_players = []
-
-    iterator = _iterate_with_progress(
-        enumerate(events_metric["Start Frame"]), use_tqdm=use_tqdm, total=num_events
+    iterator = tqdm(
+        enumerate(events_metric["Start Frame"]),
+        total=num_events,
+        desc="Calculating wUPPCF",
     )
 
     for event_idx, frame in iterator:
@@ -132,7 +116,6 @@ def calculate_wuppcf(
             frame_player_uppcf,
             defending_removed_player,
             attacking_players,
-            defending_players,
         ) = mpc.generate_pitch_control_for_event(
             event_idx,
             events_metric,
@@ -140,7 +123,7 @@ def calculate_wuppcf(
             tracking_away_metric,
             removed_players,
             params,
-            field_dimen=grid_size_field_dimen,
+            field_dimen=field_dimen,
             n_grid_cells_x=int(field_dimen[0] / params["grid_size"]),
             remove=True,
         )
@@ -152,9 +135,6 @@ def calculate_wuppcf(
         }
         if defending_removed_player is not None:
             defending_removed[event_idx] = float(defending_removed_player)
-
-        last_attacking_players = attacking_players
-        last_defending_players = defending_players
 
     grid_shape = next(
         (frame.shape for frame in uppcf_frames if frame is not None), None
@@ -204,18 +184,20 @@ def calculate_wuppcf(
         ):
             frame_number_int = int(frame_number)
             if 0 <= frame_number_int < len(tracking_away_reset):
-                stalling_positions[event_idx] = tracking_away_reset.loc[
-                    frame_number_int, [col_x, col_y]
-                ].to_numpy(dtype=float)
+                try:
+                    stalling_positions[event_idx] = tracking_away_reset.iloc[
+                        frame_number_int
+                    ][[col_x, col_y]].to_numpy(dtype=float)
+                except (KeyError, IndexError):
+                    # If columns don't exist or index is out of range, skip
+                    continue
 
     wuppcf, player_wuppcf = mpc.calculate_ultimate_pitch_control(
         uppcf_array,
         player_uppcf_array,
         ball_start_positions,
         stalling_positions,
-        last_attacking_players,
-        last_defending_players,
-        field_dimen=grid_size_field_dimen,
+        field_dimen=field_dimen,
     )
 
     return WUPPCFResult(
