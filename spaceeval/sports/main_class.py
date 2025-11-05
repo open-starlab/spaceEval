@@ -14,9 +14,9 @@ class Space_Model:
 
             return space_model_soccer(space_model, *args, **kwargs)
         elif space_model in cls.ultimate_space_model:
-            from .ultimate.wuppcf.ultimate_wuppcf_main_class import ultimate_wuppcf
+            from .ultimate.ultimate_main_func import space_model_ultimate
 
-            return ultimate_wuppcf(space_model, *args, **kwargs)
+            return space_model_ultimate(space_model, *args, **kwargs)
         elif space_model in cls.other_model:
             raise NotImplementedError("other model not implemented yet")
         else:
