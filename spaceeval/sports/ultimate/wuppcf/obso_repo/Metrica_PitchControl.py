@@ -34,19 +34,20 @@ The 'player' class collects and stores trajectory information for each player re
 """
 
 import math
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 
 def initialise_players(
-    attacking_team,
-    defending_team,
-    attacking_teamname,
-    defending_teamname,
-    params,
+    attacking_team: pd.DataFrame,
+    defending_team: pd.DataFrame,
+    attacking_teamname: str,
+    defending_teamname: str,
+    params: dict,
     removed_player,
-    field_dimen=(47.0, 18.5),
+    field_dimen: Tuple[float, float] = (94.0, 37.0),
 ):
     """
     initialise_players(team,teamname,params)
@@ -89,7 +90,7 @@ def initialise_players(
             [
                 attacking_team[_]
                 for _ in attacking_team.keys()
-                if _[5] == str(int(removed_player)) and len(_) == 8
+                if _[5] == str(removed_player_id) and len(_) == 8
             ]
         )
         disc_holder_loc = np.array(
@@ -167,7 +168,14 @@ class player(object):
     """
 
     # player object holds position, velocity, time-to-intercept and pitch control contributions for each player
-    def __init__(self, pid, team, opponent_team, teamname, params):
+    def __init__(
+        self,
+        pid: int,
+        team: pd.DataFrame,
+        opponent_team: pd.DataFrame,
+        teamname: str,
+        params: dict,
+    ):
         self.id = pid
         self.teamname = teamname
         self.playername = "%s_%s_" % (teamname, pid)
@@ -189,64 +197,42 @@ class player(object):
         self.UPPCF = 0.0  # initialise this for later
         self.wUPPCF = 0.0  # initialise this for later
 
-    def get_position(self, team):
-        # MultiIndex対応: team.indexがMultiIndexの場合とSeriesの場合で処理を分ける
-        if isinstance(team.index, pd.MultiIndex):
-            # MultiIndex: (teamname, pid, column_name) の形式
-            # 該当するプレイヤーの列を検索
-            x_col = None
-            y_col = None
-            for idx in team.index:
-                if idx[0] == self.teamname and idx[1] == str(self.id):
-                    if x_col is None:
-                        x_col = idx  # 最初の列がx座標
-                    elif y_col is None:
-                        y_col = idx  # 2番目の列がy座標
-                        break
-
-            if x_col is not None and y_col is not None:
-                self.position = np.array([team[x_col], team[y_col]])
-            else:
-                self.position = np.array([np.nan, np.nan])
-        else:
-            self.position = np.array(
-                [team[self.playername + "x"], team[self.playername + "y"]]
-            )
+    def get_position(self, team: pd.DataFrame) -> None:
+        self.position = np.array(
+            [team[self.playername + "x"], team[self.playername + "y"]]
+        )
         self.inframe = not np.any(np.isnan(self.position))
 
-    def get_velocity(self, team):
-        # MultiIndex対応
-        if isinstance(team.index, pd.MultiIndex):
-            vx_col = None
-            vy_col = None
-            for idx in team.index:
-                if idx[0] == self.teamname and idx[1] == str(self.id):
-                    if "_vx" in str(idx[2]):
-                        vx_col = idx
-                    elif "_vy" in str(idx[2]):
-                        vy_col = idx
-
-            if vx_col is not None and vy_col is not None:
-                self.velocity = np.array([team[vx_col], team[vy_col]])
-            else:
-                self.velocity = np.array([0.0, 0.0])
-        else:
-            self.velocity = np.array(
-                [team[self.playername + "vx"], team[self.playername + "vy"]]
-            )
-
+    def get_velocity(self, team: pd.DataFrame) -> None:
+        self.velocity = np.array(
+            [team[self.playername + "vx"], team[self.playername + "vy"]]
+        )
         if np.any(np.isnan(self.velocity)):
             self.velocity = np.array([0.0, 0.0])
 
-    def get_reaction_time(self, team, opponent_team):
+    def get_reaction_time(
+        self, team: pd.DataFrame, opponent_team: pd.DataFrame
+    ) -> None:
         disc_pos = np.array([team["disc_x"], team["disc_y"]])
         direction_to_disc = disc_pos - self.position
         direction_velocity = self.velocity
+
+        # Handle cases where vectors have zero magnitude
+        disc_norm = np.linalg.norm(direction_to_disc)
+        velocity_norm = np.linalg.norm(direction_velocity)
+
+        if disc_norm < 1e-10 or velocity_norm < 1e-10:
+            # If player is at disc position or has no velocity, use default reaction time
+            self.reaction_time = 0.1
+            return
+
         # angle from direction_to_disc to direction_velocity
-        theta = np.arccos(
-            np.dot(direction_to_disc, direction_velocity)
-            / (np.linalg.norm(direction_to_disc) * np.linalg.norm(direction_velocity))
-        )
+        dot_product = np.dot(direction_to_disc, direction_velocity)
+        cos_theta = dot_product / (disc_norm * velocity_norm)
+        # Clamp to [-1, 1] to avoid numerical errors in arccos
+        cos_theta = np.clip(cos_theta, -1.0, 1.0)
+        theta = np.arccos(cos_theta)
+
         if self.teamname == "Away":
             direction_to_offense = (
                 np.array(
@@ -257,32 +243,31 @@ class player(object):
                 )
                 - self.position
             )
-            # angle from direction_to_disc to direction_to_offense
-            defense_theta = np.arccos(
-                np.dot(direction_to_disc, direction_to_offense)
-                / (
-                    np.linalg.norm(direction_to_disc)
-                    * np.linalg.norm(direction_to_offense)
-                )
-            )
-            theta = min(theta, defense_theta)
+
+            offense_norm = np.linalg.norm(direction_to_offense)
+            if offense_norm > 1e-10:
+                # angle from direction_to_disc to direction_to_offense
+                dot_product_defense = np.dot(direction_to_disc, direction_to_offense)
+                cos_defense_theta = dot_product_defense / (disc_norm * offense_norm)
+                cos_defense_theta = np.clip(cos_defense_theta, -1.0, 1.0)
+                defense_theta = np.arccos(cos_defense_theta)
+                theta = min(theta, defense_theta)
+
         # The closer theta is to 0, the faster the reaction
         self.reaction_time = 0.1 + 1.0 * theta / np.pi
 
-    # def simple_time_to_intercept(self, r_final):
-    #     self.UPPCF = 0.0  # initialise this for later
-    #     self.wUPPCF = 0  # initialise this for later
-    #     # Time to intercept assumes that the player continues moving at current velocity for 'reaction_time' seconds
-    #     # and then runs at full speed to the target position.
-    #     r_reaction = self.position + self.velocity * self.reaction_time
-    #     self.time_to_intercept = (
-    #         self.reaction_time + np.linalg.norm(r_final - r_reaction) / self.vmax
-    #     )
-    #     return self.time_to_intercept
+    def calc_time_to_intercept(self, target_position: np.ndarray, param: dict) -> float:
+        self.UPPCF = 0.0  # initialise this for later
+        self.wUPPCF = 0.0  # initialise this for later
 
-    def calc_time_to_intercept(self, r_final, param):
-        distance = np.linalg.norm(r_final - self.position)
-        direction = (r_final - self.position) / distance
+        distance = np.linalg.norm(target_position - self.position)
+
+        # Handle zero distance case
+        if distance < 1e-10:
+            self.time_to_intercept = 0.0
+            return self.time_to_intercept
+
+        direction = (target_position - self.position) / distance
 
         speed_towards_target = np.dot(self.velocity, direction)
 
@@ -304,17 +289,16 @@ class player(object):
                     speed_towards_target**2 + 2 * param["max_player_accel"] * distance
                 )
             ) / param["max_player_accel"]
-            return acceleration_time_needed
+            self.time_to_intercept = acceleration_time_needed
+            return self.time_to_intercept
 
         remain_distance = distance - acceleration_distance
         constant_speed_time = remain_distance / param["max_player_speed"]
 
         self.time_to_intercept = acceleration_time + constant_speed_time
-        np.set_printoptions(precision=2)
-        # print(f'from:{self.position}, to:{r_final}, speed:{self.velocity}, time:{self.time_to_intercept}')
         return self.time_to_intercept
 
-    def probability_intercept_ball(self, T):
+    def probability_intercept_ball(self, T: float) -> float:
         # probability of a player arriving at target location at time 'T' given their expected time_to_intercept (time of arrival), as described in Spearman 2018
         f = 1 / (
             1.0
@@ -328,76 +312,17 @@ class player(object):
 """ Generate pitch control map """
 
 
-def default_model_params(time_to_control_veto=3):
-    """
-    default_model_params()
-
-    Returns the default parameters that define and evaluate the model. See Spearman 2018 for more details.
-
-    Parameters
-    -----------
-    time_to_control_veto: If the probability that another team or player can get to the ball and control it is less than 10^-time_to_control_veto, ignore that player.
-
-
-    Returns
-    -----------
-
-    params: dictionary of parameters required to determine and calculate the model
-
-    """
-    # key parameters for the model, as described in Spearman 2018
-    params = {}
-    # model parameters
-    params["max_player_accel"] = (
-        6.2 / 2
-    )  # maximum player acceleration m/s/s, not used in this implementation
-    params["max_player_speed"] = 6.9 / 2  # maximum player speed m/s
-    params["reaction_time"] = (
-        0.1  # seconds, time taken for player to react and change trajectory. Roughly determined as vmax/amax
-    )
-    params["tti_sigma"] = (
-        0.45  # Standard deviation of sigmoid function in Spearman 2018 ('s') that determines uncertainty in player arrival time
-    )
-    params["kappa_def"] = (
-        1.2  # kappa parameter in Spearman 2018 (=1.72 in the paper) that gives the advantage defending players to control ball, I have set to 1 so that home & away players have same ball control probability
-    )
-    params["lambda_att"] = 4.3  # ball control parameter for attacking team
-    params["lambda_def"] = (
-        4.3  # * params['kappa_def'] # ball control parameter for defending team
-    )
-    params["average_ball_speed"] = 15.44 / 2  # average ball travel speed in m/s
-    # numerical parameters for model evaluation
-    params["int_dt"] = 1 / 15  # integration timestep (dt)
-    params["max_int_time"] = 5  # upper limit on integral time
-    params["model_converge_tol"] = (
-        0.01  # assume convergence when PPCF>0.99 at a given location.
-    )
-    # The following are 'short-cut' parameters. We do not need to calculated PPCF explicitly when a player has a sufficient head start.
-    # A sufficient head start is when the a player arrives at the target location at least 'time_to_control' seconds before the next player
-    params["time_to_control_att"] = (
-        time_to_control_veto
-        * np.log(10)
-        * (np.sqrt(3) * params["tti_sigma"] / np.pi + 1 / params["lambda_att"])
-    )
-    params["time_to_control_def"] = (
-        time_to_control_veto
-        * np.log(10)
-        * (np.sqrt(3) * params["tti_sigma"] / np.pi + 1 / params["lambda_def"])
-    )
-    return params
-
-
 def generate_pitch_control_for_event(
-    event_id,
-    events,
-    tracking_home,
-    tracking_away,
-    removed_players,
-    params,
-    field_dimen=(47.0, 18.5),
-    n_grid_cells_x=50,
-    remove=False,
-):
+    event_id: int,
+    events: pd.DataFrame,
+    tracking_home: pd.DataFrame,
+    tracking_away: pd.DataFrame,
+    removed_players: pd.DataFrame,
+    params: dict,
+    field_dimen: Tuple[float, float] = (94.0, 37.0),
+    n_grid_cells_x: int = 50,
+    remove: bool = False,
+) -> Tuple[np.ndarray, np.ndarray, Optional[int], list]:
     """generate_pitch_control_for_event
 
     Evaluates pitch control surface over the entire field at the moment of the given event (determined by the index of the event passed as an input)
@@ -432,18 +357,11 @@ def generate_pitch_control_for_event(
     )
     # break the pitch down into a grid
     n_grid_cells_y = int(n_grid_cells_x * field_dimen[1] / field_dimen[0])
-    dx = field_dimen[0] / n_grid_cells_x
-    dy = field_dimen[1] / n_grid_cells_y
-    xgrid = (
-        np.linspace(0, n_grid_cells_x, int(np.ceil(field_dimen[0]))) * dx
-        - field_dimen[0] / 2.0
-        + dx / 2.0
-    )
-    ygrid = (
-        np.linspace(0, n_grid_cells_y, int(np.ceil(field_dimen[1]))) * dy
-        - field_dimen[1] / 2.0
-        + dy / 2.0
-    )
+
+    # Use n_grid_cells_x and n_grid_cells_y directly as the number of cells
+    xgrid = np.linspace(-field_dimen[0] / 2.0, field_dimen[0] / 2.0, n_grid_cells_x)
+    ygrid = np.linspace(-field_dimen[1] / 2.0, field_dimen[1] / 2.0, n_grid_cells_y)
+
     # initialise player positions and velocities for pitch control calc (so that we're not repeating this at each grid cell position)
     # initialise pitch control grids for attacking and defending teams
     UPPCFa = np.zeros(shape=(len(ygrid), len(xgrid)))
@@ -491,13 +409,16 @@ def generate_pitch_control_for_event(
         frame_player_UPPCF,
         defending_removed_player,
         attacking_players,
-        defending_players,
     )
 
 
 def calculate_pitch_control_at_target(
-    target_position, attacking_players, defending_players, ball_start_pos, params
-):
+    target_position: np.ndarray,
+    attacking_players: list,
+    defending_players: list,
+    ball_start_pos: np.ndarray,
+    params: dict,
+) -> Tuple[float, float, np.ndarray]:
     """calculate_pitch_control_at_target
 
     Calculates the pitch control probability for the attacking and defending teams at a specified target position on the ball.
@@ -531,13 +452,15 @@ def calculate_pitch_control_at_target(
     # Sort attacking players by id
     attacking_players = sorted(attacking_players, key=lambda x: int(x.id))
 
+    # Calculate time to intercept for all players first
+    for p in attacking_players:
+        p.calc_time_to_intercept(target_position, params)
+    for p in defending_players:
+        p.calc_time_to_intercept(target_position, params)
+
     # first get arrival time of 'nearest' attacking player (nearest also dependent on current velocity)
-    tau_min_att = np.nanmin(
-        [p.calc_time_to_intercept(target_position, params) for p in attacking_players]
-    )
-    tau_min_def = np.nanmin(
-        [p.calc_time_to_intercept(target_position, params) for p in defending_players]
-    )
+    tau_min_att = np.nanmin([p.time_to_intercept for p in attacking_players])
+    tau_min_def = np.nanmin([p.time_to_intercept for p in defending_players])
 
     # solve pitch control model by integrating equation 3 in Spearman et al.
     grid_player_UPPCF = np.zeros(shape=(len(attacking_players), 1))
@@ -610,14 +533,12 @@ def calculate_pitch_control_at_target(
 
 
 def calculate_ultimate_pitch_control(
-    UPPCF,
-    player_UPPCF,
-    ball_start_pos,
-    stalling_pos,
-    attacking_players,
-    defending_players,
+    UPPCF: np.ndarray,
+    player_UPPCF: np.ndarray,
+    ball_start_pos: np.ndarray,
+    stalling_pos: np.ndarray,
     field_dimen=(94, 37),
-):
+) -> Tuple[np.ndarray, np.ndarray]:
     def sigmoid(a, b, x):
         s = 1 / (1 + np.exp(-(a * (x - b))))
         return s
@@ -734,5 +655,4 @@ def calculate_ultimate_pitch_control(
     # cbar.ax.set_aspect(50)  # Adjust the aspect ratio to match the figure height
     # plt.savefig('weight_stalling.png')
     # plt.close()
-    return wUPPCF, player_wUPPCF
     return wUPPCF, player_wUPPCF

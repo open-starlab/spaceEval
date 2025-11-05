@@ -11,6 +11,7 @@ Data can be found at: https://github.com/metrica-sports/sample-data
 """
 
 import csv as csv
+from typing import Tuple
 
 import pandas as pd
 
@@ -52,15 +53,15 @@ def tracking_data(tracking_file: str, teamname: str) -> pd.DataFrame:
 
 
 def to_metric_coordinates(
-    data: pd.DataFrame, field_dimen: "tuple[float, float]", grid_size: float
+    data: pd.DataFrame, field_dimen: Tuple[float, float] = (94, 37)
 ) -> pd.DataFrame:
     """
     Convert positions from Metrica units to meters (with origin at centre circle)
     """
     x_columns = [c for c in data.columns if c[-1].lower() == "x"]
     y_columns = [c for c in data.columns if c[-1].lower() == "y"]
-    data[x_columns] = (data[x_columns] - field_dimen[0] / 2) / grid_size
-    data[y_columns] = -1 * (data[y_columns] - field_dimen[1] / 2) / grid_size
+    data[x_columns] = data[x_columns] - field_dimen[0] / 2
+    data[y_columns] = -1 * (data[y_columns] - field_dimen[1] / 2)
     """
     ------------ ***NOTE*** ------------
     Metrica actually define the origin at the *top*-left of the field, not the bottom-left, as discussed in the YouTube video. 

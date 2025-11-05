@@ -11,12 +11,18 @@ Data can be found at: https://github.com/metrica-sports/sample-data
 
 """
 import numpy as np
+import pandas as pd
 import scipy.signal as signal
 
 
 def calc_player_velocities(
-    team, smoothing=True, filter_="Savitzky-Golay", window=5, polyorder=0, maxspeed=12
-):
+    team: pd.DataFrame,
+    smoothing: bool = True,
+    filter_: str = "Savitzky-Golay",
+    window: int = 5,
+    polyorder: int = 0,
+    maxspeed: float = 12,
+) -> pd.DataFrame:
     """calc_player_velocities( tracking_data )
 
     Calculate player velocities in x & y direciton, and total player speed at each timestamp of the tracking data
@@ -44,7 +50,6 @@ def calc_player_velocities(
     # Calculate the timestep from one frame to the next. Should always be 0.04 within the same half
     dt = team["Time [s]"].diff()
 
-    print(team)
     # estimate velocities for players in team
     for player in player_ids:  # cycle through players individually
         # difference player positions in timestep dt to get unsmoothed estimate of velicity
@@ -76,7 +81,7 @@ def calc_player_velocities(
     return team
 
 
-def remove_player_velocities(team):
+def remove_player_velocities(team: pd.DataFrame) -> pd.DataFrame:
     # remove player velocoties and acceleeration measures that are already in the 'team' dataframe
     columns = [
         c
