@@ -38,7 +38,7 @@ class ultimate_wuppcf:
     @staticmethod
     def _ensure_filepath_dict(source) -> Dict[str, str]:
         """
-        Convert input source to a dictionary mapping match_id -> CSV file path.
+        Ensure the input source is a dictionary mapping match IDs to file paths.
         """
         if source is None:
             raise ValueError("Input source cannot be None.")
@@ -91,6 +91,12 @@ class ultimate_wuppcf:
         return events_dict, tracking_home_dict, tracking_away_dict
 
     def get_wuppcf(self) -> Dict[str, WUPPCFResult]:
+        """
+        Calculate wUPPCF for all matches based on provided event and tracking data.
+
+        Returns:
+            Dictionary mapping match_id to WUPPCFResult.
+        """
         events_dict, tracking_home_dict, tracking_away_dict = self.read_data()
 
         match_ids = sorted(
@@ -128,6 +134,13 @@ class ultimate_wuppcf:
         return results
 
     def _persist_result(self, match_id: str, result: WUPPCFResult) -> None:
+        """
+        Persist wUPPCF results to disk.
+
+        Args:
+            match_id: Match identifier
+            result: WUPPCFResult object
+        """
         assert self.out_path is not None
         data_dir = self.out_path
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -146,6 +159,12 @@ class ultimate_wuppcf:
         self,
         results: Dict[str, WUPPCFResult],
     ) -> None:
+        """
+        Visualize wUPPCF results.
+
+        Args:
+            results: Dictionary mapping match_id to WUPPCFResult
+        """
         settings = get_provider_settings(self.provider)
 
         for match_id, result in results.items():
