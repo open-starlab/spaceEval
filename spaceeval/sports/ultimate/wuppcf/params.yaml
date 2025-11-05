@@ -22,4 +22,4 @@ model_params:
   max_int_time: 5  # Default: 5
   model_converge_tol: 0.01  # Default: 0.01
   time_to_control_veto: 3  # Default: 3
-  grid_size: 10  # Default: 2
+  grid_size: 2  # Default: 2
