@@ -76,10 +76,6 @@ def get_model_params(
 
     params = _ALL_PARAMS["model_params"].copy()
 
-    params["max_player_accel"] /= params["grid_size"]
-    params["max_player_speed"] /= params["grid_size"]
-    params["average_ball_speed"] /= params["grid_size"]
-
     settings = get_provider_settings(provider)
     params["int_dt"] = 1.0 / settings.fps
 
