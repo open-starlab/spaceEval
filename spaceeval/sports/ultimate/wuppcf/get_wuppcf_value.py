@@ -43,25 +43,24 @@ def calculate_wuppcf(
     provider: str = "UltimateTrack",
 ) -> WUPPCFResult:
     """
-    Calculate Ultimate Frisbee weighted Pitch Control Field (wUPPCF).
+    Calculate the weighted Ultimate Pitch Control Field (wUPPCF) for a given match.
 
     Parameters
     ----------
-    events : pd.DataFrame
-        Event data containing at least 'Start Frame', 'Start X', 'Start Y', and 'From'.
-    tracking_home : pd.DataFrame
-        Tracking data for the attacking team with frame index and player coordinates.
-    tracking_away : pd.DataFrame
-        Tracking data for the defending team with frame index and player coordinates.
+    events_path : str
+        Path to the events data file.
+    tracking_home_path : str
+        Path to the home team's tracking data file.
+    tracking_away_path : str
+        Path to the away team's tracking data file.
     provider : str, optional
-        Data provider name defined in the providers config file, by default "UltimateTrack".
-    use_tqdm : bool, optional
-        Display a tqdm progress bar when processing events, by default False.
+        Data provider name. Default is "UltimateTrack".
 
     Returns
     -------
     WUPPCFResult
-        Dataclass containing UPPCF, weighted UPPCF, per-player UPPCF, metadata, and intermediate arrays.
+        A dataclass containing the wUPPCF, player-specific wUPPCF, and the
+        metric-coordinate versions of the events and tracking data.
     """
 
     events = mio.read_event_data(events_path)

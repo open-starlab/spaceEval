@@ -29,21 +29,20 @@ def plot_pitch(
     field_dimen: Tuple[float, float] = (94.0, 37.0),
     linewidth: int = 2,
     markersize: int = 20,
-):
+) -> Tuple[Figure, Axes]:
     """plot_pitch
 
-    Plots a soccer pitch. All distance units converted to meters.
+    Plots a ultimate pitch. All distance units converted to meters.
 
     Parameters
     -----------
-        field_dimen: (length, width) of field in meters. Default is (106,68)
-        field_color: color of field. options are {'green','white'}
+        field_dimen: (length, width) of field in meters. Default is (94.0,37.0)
         linewidth  : width of lines. default = 2
         markersize : size of markers (e.g. penalty spot, centre spot, posts). default = 20
 
-    Returrns
+    Returns
     -----------
-       fig,ax : figure and aixs objects (so that other data can be plotted onto the pitch)
+        fig,ax : figure and aixs objects (so that other data can be plotted onto the pitch)
 
     """
     fig, ax = plt.subplots(figsize=(12, 8))  # create a figure
@@ -121,6 +120,31 @@ def save_match_clip_OBSO(
     colorbar: bool = False,
     cm: str = "bwr_r",
 ) -> None:
+    """save_match_clip
+    Saves an mp4 clip of the match tracking data with wUPPCF overlay
+
+    Parameters
+    -----------
+        hometeam : DataFrame of home team tracking data
+        awayteam : DataFrame of away team tracking data
+        wUPPCF   : Array of wUPPCF data to overlay on the pitch
+        fpath    : Path to save the clip
+        fname    : Filename to save the clip as (default = "clip_test")
+        figax    : Optional tuple of (fig,ax) to plot onto. If None, a new figure is created.
+        frames_per_second : Frames per second of the output clip (default = 25)
+        team_colors : Tuple of colors for home and away teams (default = ("b","r"))
+        field_dimen : (length,width) of field in meters. Default is (94.0,37.0)
+        PlayerMarkerSize : Size of player markers (default = 10)
+        PlayerAlpha : Alpha value of player markers (default = 0.7)
+        vmin : Minimum value for wUPPCF colormap (default = 0)
+        vmax : Maximum value for wUPPCF colormap (default = 1)
+        colorbar : Whether to include a colorbar in the plot (default = False)
+        cm : Colormap to use for wUPPCF overlay (default = "bwr_r")
+
+    Returns
+    -----------
+        None
+    """
     assert np.all(
         hometeam.index == awayteam.index
     ), "Home and away team Dataframe indices must be the same"

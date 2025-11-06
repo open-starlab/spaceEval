@@ -333,22 +333,20 @@ def generate_pitch_control_for_event(
         events: Dataframe containing the event data
         tracking_home: tracking DataFrame for the Home team
         tracking_away: tracking DataFrame for the Away team
+        removed_players: Dataframe containing the players to be removed from the pitch control calculation for each frame
         params: Dictionary of model parameters (default model parameters can be generated using default_model_params() )
-        GK_numbers: tuple containing the player id of the goalkeepers for the (home team, away team)
-        field_dimen: tuple containing the length and width of the pitch in meters. Default is (106,68)
+        field_dimen: tuple containing the length and width of the pitch in meters. Default is (94.0,37.0)
         n_grid_cells_x: Number of pixels in the grid (in the x-direction) that covers the surface. Default is 50.
                         n_grid_cells_y will be calculated based on n_grid_cells_x and the field dimensions
-        offsides: If True, find and remove offside atacking players from the calculation. Default is True.
+        remove: Boolean flag to indicate whether to remove players near the disc from the pitch control calculation.
 
-    UPDATE (tutorial 4): Note new input arguments ('GK_numbers' and 'offsides')
-
-    Returrns
+    Returns
     -----------
-        PPCFa: Pitch control surface (dimen (n_grid_cells_x,n_grid_cells_y) ) containing pitch control probability for the attcking team.
-               Surface for the defending team is just 1-PPCFa.
-        xgrid: Positions of the pixels in the x-direction (field length)
-        ygrid: Positions of the pixels in the y-direction (field width)
-
+        UPPCFa / (UPPCFa + UPPCFd): Normalized pitch control surface for the attacking team (dimen (n_grid_cells_x,n_grid_cells_y) )
+               Surface for the defending team is just 1-UPPCFa.
+        frame_player_UPPCF: Pitch control contribution for each attacking player at each location on the pitch (dimen (num_attacking_players,n_grid_cells_y,n_grid_cells_x) )
+        defending_removed_player: Player id of the defending player removed from the calculation (if any)
+        attacking_players: List of attacking player objects used in the calculation
     """
     # get the details of the event (frame, team in possession, ball_start_position)
     frame = events.loc[event_id]["Start Frame"]
@@ -435,6 +433,7 @@ def calculate_pitch_control_at_target(
     -----------
         PPCFatt: Pitch control probability for the attacking team
         PPCFdef: Pitch control probability for the defending team ( 1-PPCFatt-PPCFdef <  params['model_converge_tol'] )
+        grid_player_UPPCF: Pitch control contribution for each attacking player at the target position (dimen (num_attacking_players,) )
 
     """
     # calculate ball travel time from start position to end position.
@@ -539,6 +538,23 @@ def calculate_ultimate_pitch_control(
     stalling_pos: np.ndarray,
     field_dimen=(94, 37),
 ) -> Tuple[np.ndarray, np.ndarray]:
+    """calculate_ultimate_pitch_control
+    Adjusts the standard pitch control surface to account for the unique aspects of ultimate frisbee, namely the disc's range and stalling rules.
+
+    Parameters
+    -----------
+        UPPCF: Standard pitch control surface (dimen (time, n_grid_cells_y, n_grid_cells_x) )
+        player_UPPCF: Pitch control contribution for each attacking player at each location on the pitch (dimen (num_attacking_players, time, n_grid_cells_y, n_grid_cells_x) )
+        ball_start_pos: Current position of the disc (start position for a pass) for each time frame (dimen (time, 2) )
+        stalling_pos: Position of the stalling marker for each time frame (dimen (time, 2) )
+        field_dimen: tuple containing the length and width of the pitch in meters. Default is (94.0,37.0)
+
+    Returns
+    -----------
+        wUPPCF: Adjusted pitch control surface for ultimate frisbee (dimen (time, n_grid_cells_y, n_grid_cells_x) )
+        player_wUPPCF: Adjusted pitch control contribution for each attacking player at each location on the pitch (dimen (num_attacking_players, time, n_grid_cells_y, n_grid_cells_x) )
+    """
+
     def sigmoid(a, b, x):
         s = 1 / (1 + np.exp(-(a * (x - b))))
         return s
