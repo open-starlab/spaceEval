@@ -1,0 +1,25 @@
+# Provider-specific settings
+UltimateTrack:
+  field_length: 94.0
+  field_width: 37.0
+  fps: 15
+
+UFA:
+  field_length: 109.73
+  field_width: 48.77
+  fps: 10
+
+# wUPPCF model parameters
+model_params:
+  max_player_accel: 6.2  # Default: 6.2
+  max_player_speed: 6.9  # Default: 6.9
+  reaction_time: 0.1  # Default: 0.1
+  tti_sigma: 0.45  # Default: 0.45
+  kappa_def: 1.2  # Default: 1.2
+  lambda_att: 4.3  # Default: 4.3
+  lambda_def: 4.3  # Default: 4.3
+  average_ball_speed: 15.44  # Default: 15.44
+  max_int_time: 5  # Default: 5
+  model_converge_tol: 0.01  # Default: 0.01
+  time_to_control_veto: 3  # Default: 3
+  grid_size: 2  # Default: 2
