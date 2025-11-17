@@ -25,7 +25,7 @@ def _reset_player_contribs(players):
         # Laurie’s player class already exposes PPCF; we reuse it as our running contribution bucket.
         p.PPCF = 0.0
 
-def _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params, att_ids_filter=None, def_ids_filter=None):
+def _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params, deliver_type, att_ids_filter=None, def_ids_filter=None):
     """
     Core BIMOS/PBCF integrator (soccer-flavor):
     - For each time step t, evaluate the *moving* ball position r_mid(t)
@@ -86,9 +86,14 @@ def _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_p
         return P_att[i-1] / denom, P_def[i-1] / denom
     # If not fully converged but time horizon exhausted, return latest
     if (P_att[i-1] + P_def[i-1] < 1 - params['model_converge_tol']) and (i >= dt_array.size):
-        return P_att[i-1], P_def[i-1]
+        if deliver_type == 'pass':
+            return P_att[i-1], P_def[i-1]
+        else:  # dribble
+            denom = max(P_att[i-1] + P_def[i-1], 1e-12)
+            return P_att[i-1] / denom, P_def[i-1] / denom
     # Else use the last stable step
-    return P_att[i-2], P_def[i-2]
+    else:
+        return P_att[i-2], P_def[i-2]
 
 def calculate_pbcf_pass(target_position, attacking_players, defending_players, ball_start_pos, params):
     """
@@ -115,7 +120,7 @@ def calculate_pbcf_pass(target_position, attacking_players, defending_players, b
     def_ids_filter = None
 
     return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params,
-                           att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
+                           deliver_type='pass', att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
 
 def calculate_pbcf_dribble(target_position, attacking_players, defending_players, ball_start_pos, params, possessor_id=None):
     """
@@ -144,7 +149,7 @@ def calculate_pbcf_dribble(target_position, attacking_players, defending_players
     def_ids_filter = None
 
     return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params,
-                           att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
+                           deliver_type='dribble', att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
 
 def generate_pbcf_for_event(
     event_id,
