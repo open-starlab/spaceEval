@@ -7,7 +7,7 @@ Module for visualising Metrica tracking and event data
 
 Data can be found at: https://github.com/metrica-sports/sample-data
 
-UPDATE for tutorial 4: plot_pitchcontrol_for_event no longer requires 'xgrid' and 'ygrid' as inputs. 
+UPDATE for tutorial 4: plot_pitchcontrol_for_event no longer requires 'xgrid' and 'ygrid' as inputs.
 
 @author: Laurie Shaw (@EightyFivePoint)
 """
@@ -162,7 +162,7 @@ def save_match_clip_OBSO(
         fig, ax = figax
     fig.set_tight_layout(True)
 
-    # 初期化
+    # Initialize plot objects
     player_objs = []
     disc_objs = []
     text_objs = []
@@ -228,7 +228,7 @@ def save_match_clip_OBSO(
             -field_dimen[1] / 2,
             field_dimen[1] / 2,
         ),
-        # interpolation="spline36",
+        interpolation="spline36",
         vmin=vmin,
         vmax=vmax,
         cmap=cmap,
