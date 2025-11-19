@@ -64,8 +64,8 @@ def calculate_wuppcf(
     """
 
     events = mio.read_event_data(events_path)
-    tracking_home = mio.tracking_data(tracking_home_path, "Home")
-    tracking_away = mio.tracking_data(tracking_away_path, "Away")
+    tracking_home = pd.read_csv(tracking_home_path)
+    tracking_away = pd.read_csv(tracking_away_path)
 
     if events.empty:
         raise ValueError("events DataFrame must not be empty.")
