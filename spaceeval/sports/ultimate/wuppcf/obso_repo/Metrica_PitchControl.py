@@ -351,6 +351,7 @@ def generate_pitch_control_for_event(
     """
     # get the details of the event (frame, team in possession, ball_start_position)
     frame = events.loc[event_id]["Start Frame"]
+    min_frame = int(events["Start Frame"].min())
     ball_start_pos = np.array(
         [events.loc[event_id]["Start X"], events.loc[event_id]["Start Y"]]
     )
@@ -366,10 +367,11 @@ def generate_pitch_control_for_event(
     UPPCFa = np.zeros(shape=(len(ygrid), len(xgrid)))
     UPPCFd = np.zeros(shape=(len(ygrid), len(xgrid)))
     # if remove is true, remove players near the disc
+
     if remove is False:
         attacking_players, defending_players, _ = initialise_players(
-            tracking_home.loc[frame - 1],
-            tracking_away.loc[frame - 1],
+            tracking_home.loc[frame - min_frame],
+            tracking_away.loc[frame - min_frame],
             "Home",
             "Away",
             params,
@@ -378,8 +380,8 @@ def generate_pitch_control_for_event(
     else:
         attacking_players, defending_players, defending_removed_player = (
             initialise_players(
-                tracking_home.loc[frame - 1],
-                tracking_away.loc[frame - 1],
+                tracking_home.loc[frame - min_frame],
+                tracking_away.loc[frame - min_frame],
                 "Home",
                 "Away",
                 params,
