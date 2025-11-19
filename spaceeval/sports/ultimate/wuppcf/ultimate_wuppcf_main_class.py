@@ -33,7 +33,7 @@ class ultimate_wuppcf:
     @staticmethod
     def _extract_match_key(path: Union[os.PathLike, str]) -> str:
         stem = Path(path).stem
-        return "_".join(stem.split("_")[:-1])
+        return stem
 
     @staticmethod
     def _ensure_filepath_dict(source) -> Dict[str, str]:

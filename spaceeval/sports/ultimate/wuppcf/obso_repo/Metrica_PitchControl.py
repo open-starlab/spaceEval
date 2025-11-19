@@ -68,8 +68,8 @@ def initialise_players(
 
     """
     # get player ids
-    attacking_player_ids = np.arange(0, 7)
-    defending_player_ids = np.arange(0, 7)
+    attacking_player_ids = np.arange(1, 8)
+    defending_player_ids = np.arange(1, 8)
 
     # remove attacking player near the disc
     defending_removed_player = None
@@ -93,12 +93,13 @@ def initialise_players(
                 if _[5] == str(removed_player_id) and len(_) == 8
             ]
         )
-        disc_holder_loc = np.array(
-            [
-                disc_holder_loc[0] * 2 + field_dimen[0],
-                -1 * disc_holder_loc[1] * 2 + field_dimen[1],
-            ]
-        )
+        if len(disc_holder_loc) != 0:
+            disc_holder_loc = np.array(
+                [
+                    disc_holder_loc[0] * 2 + field_dimen[0],
+                    -1 * disc_holder_loc[1] * 2 + field_dimen[1],
+                ]
+            )
         dist_min = 100
         for i in defending_player_ids:
             defending_player_loc = np.array(
@@ -350,6 +351,7 @@ def generate_pitch_control_for_event(
     """
     # get the details of the event (frame, team in possession, ball_start_position)
     frame = events.loc[event_id]["Start Frame"]
+    min_frame = int(events["Start Frame"].min())
     ball_start_pos = np.array(
         [events.loc[event_id]["Start X"], events.loc[event_id]["Start Y"]]
     )
@@ -365,10 +367,11 @@ def generate_pitch_control_for_event(
     UPPCFa = np.zeros(shape=(len(ygrid), len(xgrid)))
     UPPCFd = np.zeros(shape=(len(ygrid), len(xgrid)))
     # if remove is true, remove players near the disc
+
     if remove is False:
         attacking_players, defending_players, _ = initialise_players(
-            tracking_home.loc[frame],
-            tracking_away.loc[frame],
+            tracking_home.loc[frame - min_frame],
+            tracking_away.loc[frame - min_frame],
             "Home",
             "Away",
             params,
@@ -377,8 +380,8 @@ def generate_pitch_control_for_event(
     else:
         attacking_players, defending_players, defending_removed_player = (
             initialise_players(
-                tracking_home.loc[frame],
-                tracking_away.loc[frame],
+                tracking_home.loc[frame - min_frame],
+                tracking_away.loc[frame - min_frame],
                 "Home",
                 "Away",
                 params,
@@ -523,8 +526,6 @@ def calculate_pitch_control_at_target(
             UPPCFdef[i] += player.UPPCF  # add to sum over players in the defending team
         ptot = UPPCFdef[i] + UPPCFatt[i]  # total pitch control probability
         i += 1
-    # if i>=dT_array.size:
-    # print("Integration failed to converge: %1.3f" % (ptot) )
     for n, player in enumerate(attacking_players):
         grid_player_UPPCF[n] = player.UPPCF
 
@@ -631,8 +632,7 @@ def calculate_ultimate_pitch_control(
                         stalling_pos[t][1] + np.cos(angle) * r,
                     ]
                 )
-                # stalling_one_hand_to_stalling_other_handとdisc_to_targetの交点を求める。互いの線分上に交点がない場合、交点はなしとする
-                # 交点がある場合、stalling_pos[t]と交点の距離をrとする
+                # Find the intersection of stalling_one_hand_to_stalling_other_hand and disc_to_target
                 dist_to_target = np.linalg.norm(disc_to_target)
                 intersection = line_intersection(
                     stalling_one_hand, stalling_other_hand, ball_start_pos[t], target
@@ -656,19 +656,5 @@ def calculate_ultimate_pitch_control(
     player_wUPPCF = (
         player_UPPCF * weight_range[None, :, :, :] * weight_stalling[None, :, :, :]
     )
-    # import matplotlib.pyplot as plt
-    # plt.figure(figsize=(10, 5))
-    # im = plt.imshow(weight_range[52], cmap='Blues', interpolation='spline36', vmin=0.7, vmax=1)
-    # plt.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
-    # cbar = plt.colorbar(im)
-    # cbar.ax.set_aspect(50)  # Adjust the aspect ratio to match the figure height
-    # plt.savefig('weight_range.png')
-    # plt.close()
-    # plt.figure(figsize=(10, 5))
-    # im = plt.imshow(weight_stalling[52], cmap='Blues', interpolation='spline36', vmin=0.5, vmax=1)
-    # plt.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
-    # cbar = plt.colorbar(im)
-    # cbar.ax.set_aspect(50)  # Adjust the aspect ratio to match the figure height
-    # plt.savefig('weight_stalling.png')
-    # plt.close()
+
     return wUPPCF, player_wUPPCF
