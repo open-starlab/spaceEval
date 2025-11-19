@@ -68,8 +68,8 @@ def initialise_players(
 
     """
     # get player ids
-    attacking_player_ids = np.arange(0, 7)
-    defending_player_ids = np.arange(0, 7)
+    attacking_player_ids = np.arange(1, 8)
+    defending_player_ids = np.arange(1, 8)
 
     # remove attacking player near the disc
     defending_removed_player = None
@@ -93,12 +93,13 @@ def initialise_players(
                 if _[5] == str(removed_player_id) and len(_) == 8
             ]
         )
-        disc_holder_loc = np.array(
-            [
-                disc_holder_loc[0] * 2 + field_dimen[0],
-                -1 * disc_holder_loc[1] * 2 + field_dimen[1],
-            ]
-        )
+        if len(disc_holder_loc) != 0:
+            disc_holder_loc = np.array(
+                [
+                    disc_holder_loc[0] * 2 + field_dimen[0],
+                    -1 * disc_holder_loc[1] * 2 + field_dimen[1],
+                ]
+            )
         dist_min = 100
         for i in defending_player_ids:
             defending_player_loc = np.array(
@@ -367,8 +368,8 @@ def generate_pitch_control_for_event(
     # if remove is true, remove players near the disc
     if remove is False:
         attacking_players, defending_players, _ = initialise_players(
-            tracking_home.loc[frame],
-            tracking_away.loc[frame],
+            tracking_home.loc[frame - 1],
+            tracking_away.loc[frame - 1],
             "Home",
             "Away",
             params,
@@ -377,8 +378,8 @@ def generate_pitch_control_for_event(
     else:
         attacking_players, defending_players, defending_removed_player = (
             initialise_players(
-                tracking_home.loc[frame],
-                tracking_away.loc[frame],
+                tracking_home.loc[frame - 1],
+                tracking_away.loc[frame - 1],
                 "Home",
                 "Away",
                 params,
