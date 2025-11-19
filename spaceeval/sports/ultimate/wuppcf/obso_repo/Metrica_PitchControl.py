@@ -524,8 +524,6 @@ def calculate_pitch_control_at_target(
             UPPCFdef[i] += player.UPPCF  # add to sum over players in the defending team
         ptot = UPPCFdef[i] + UPPCFatt[i]  # total pitch control probability
         i += 1
-    # if i>=dT_array.size:
-    # print("Integration failed to converge: %1.3f" % (ptot) )
     for n, player in enumerate(attacking_players):
         grid_player_UPPCF[n] = player.UPPCF
 
@@ -632,8 +630,7 @@ def calculate_ultimate_pitch_control(
                         stalling_pos[t][1] + np.cos(angle) * r,
                     ]
                 )
-                # stalling_one_hand_to_stalling_other_handとdisc_to_targetの交点を求める。互いの線分上に交点がない場合、交点はなしとする
-                # 交点がある場合、stalling_pos[t]と交点の距離をrとする
+                # Find the intersection of stalling_one_hand_to_stalling_other_hand and disc_to_target
                 dist_to_target = np.linalg.norm(disc_to_target)
                 intersection = line_intersection(
                     stalling_one_hand, stalling_other_hand, ball_start_pos[t], target
@@ -657,19 +654,5 @@ def calculate_ultimate_pitch_control(
     player_wUPPCF = (
         player_UPPCF * weight_range[None, :, :, :] * weight_stalling[None, :, :, :]
     )
-    # import matplotlib.pyplot as plt
-    # plt.figure(figsize=(10, 5))
-    # im = plt.imshow(weight_range[52], cmap='Blues', interpolation='spline36', vmin=0.7, vmax=1)
-    # plt.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
-    # cbar = plt.colorbar(im)
-    # cbar.ax.set_aspect(50)  # Adjust the aspect ratio to match the figure height
-    # plt.savefig('weight_range.png')
-    # plt.close()
-    # plt.figure(figsize=(10, 5))
-    # im = plt.imshow(weight_stalling[52], cmap='Blues', interpolation='spline36', vmin=0.5, vmax=1)
-    # plt.tick_params(labelbottom=False, labelleft=False, bottom=False, left=False)
-    # cbar = plt.colorbar(im)
-    # cbar.ax.set_aspect(50)  # Adjust the aspect ratio to match the figure height
-    # plt.savefig('weight_stalling.png')
-    # plt.close()
+
     return wUPPCF, player_wUPPCF
