@@ -1,6 +1,6 @@
 class Space_Model:
     basketball_space_model = ["BIMOS", "BMOS"]
-    soccer_space_model = ["soccer_OBSO", "soccer_BIMOS"]
+    soccer_space_model = ["soccer_OBSO", "soccer_BIMOS", "soccer_OBPV"]
     ultimate_space_model = ["wUPPCF"]
     other_model = []
 
