@@ -46,8 +46,7 @@ def calculate_bimos_fc(Metrica_df, tracking_home, tracking_away):
     PBCF_dict : dict
         Pitch control field (PBCF) per event.
     """
-    
-    Metrica_df = Metrica_df.head(30)
+    # Metrica_df = Metrica_df.head(30)
 
     tracking_len = min(len(tracking_home), len(tracking_away))
     #drop the Merica_df_row where Start Frame > tracking_len
@@ -56,7 +55,7 @@ def calculate_bimos_fc(Metrica_df, tracking_home, tracking_away):
     # check 'Home' team in tracking and event data
     Metrica_df = obs.check_home_away_event(Metrica_df, tracking_home, tracking_away)
     # delete last event because this event is 'time up' event
-    Metrica_df = Metrica_df[:-1]
+    Metrica_df = Metrica_df[:-1] if Metrica_df.iloc[-1]['Type'] == '' else Metrica_df
 
     # filter:Savitzky-Golay
     tracking_home = mvel.calc_player_velocities(tracking_home, smoothing=True) 

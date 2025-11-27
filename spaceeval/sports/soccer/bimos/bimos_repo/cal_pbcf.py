@@ -86,9 +86,12 @@ def _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_p
         return P_att[i-1] / denom, P_def[i-1] / denom
     # If not fully converged but time horizon exhausted, return latest
     if (P_att[i-1] + P_def[i-1] < 1 - params['model_converge_tol']) and (i >= dt_array.size):
-        return P_att[i-1], P_def[i-1]
+        #normalize and return
+        denom = max(P_att[i-1] + P_def[i-1], 1e-12)
+        return P_att[i-1] / denom, P_def[i-1] / denom
     # Else use the last stable step
-    return P_att[i-2], P_def[i-2]
+    denom = max(P_att[i-2] + P_def[i-2], 1e-12)
+    return P_att[i-2] / denom, P_def[i-2] / denom
 
 def calculate_pbcf_pass(target_position, attacking_players, defending_players, ball_start_pos, params):
     """
@@ -100,22 +103,33 @@ def calculate_pbcf_pass(target_position, attacking_players, defending_players, b
     # 1) Ball time-to-target using *soccer* average ball speed
     T_calc = _ball_travel_time_soccer(ball_start_pos, target_position, params)
 
-    # 2) Time grid (centered on [0, T_calc], same step as Laurie’s PPCF integrator)
-    t0 = max(0.0, T_calc - params['int_dt'])  # small backstep to prime the loop like Laurie’s code
-    dt_array = np.arange(0.0, T_calc + params['max_int_time'], params['int_dt'])
-    if dt_array.size < 2:
-        dt_array = np.array([0.0, max(params['int_dt'], T_calc)])
+    tau_min_att = np.nanmin( [p.simple_time_to_intercept(target_position) for p in attacking_players] )
+    tau_min_def = np.nanmin( [p.simple_time_to_intercept(target_position) for p in defending_players] )
 
-    # 3) Identify the ball possessor (by velocity/ID you keep in your pipeline). In Laurie’s pipeline,
-    #    this isn’t encoded on the player object by default. If you’ve stored it, create a filter set that excludes it.
-    #    Otherwise, pass with all attackers (common in event-centric eval where you don’t track possessor).
-    #    Here we assume possessor is *not* encoded in player; so pass with all attackers, which still works.
-    #    If you *do* know the possessor ID (e.g., `possessor_id`), set: att_ids_filter = {pid for pid in ids if pid != possessor_id}
-    att_ids_filter = None
-    def_ids_filter = None
+    # check whether we actually need to solve equation 3
+    if tau_min_att-max(T_calc,tau_min_def) >= params['time_to_control_def']:
+        # if defending team can arrive significantly before attacking team, no need to solve pitch control model
+        return 0., 1.
+    elif tau_min_def-max(T_calc,tau_min_att) >= params['time_to_control_att']:
+        # if attacking team can arrive significantly before defending team, no need to solve pitch control model
+        return 1., 0.
+    else: 
 
-    return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params,
-                           att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
+        # 2) Time grid (centered on [0, T_calc], same step as Laurie’s PPCF integrator)
+        dt_array = np.arange(0.0, T_calc, params['int_dt'])
+        if dt_array.size < 2:
+            dt_array = np.array([0.0, max(params['int_dt'], T_calc)])
+
+        # 3) Identify the ball possessor (by velocity/ID you keep in your pipeline). In Laurie’s pipeline,
+        #    this isn’t encoded on the player object by default. If you’ve stored it, create a filter set that excludes it.
+        #    Otherwise, pass with all attackers (common in event-centric eval where you don’t track possessor).
+        #    Here we assume possessor is *not* encoded in player; so pass with all attackers, which still works.
+        #    If you *do* know the possessor ID (e.g., `possessor_id`), set: att_ids_filter = {pid for pid in ids if pid != possessor_id}
+        att_ids_filter = None
+        def_ids_filter = None
+
+        return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params,
+                            att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
 
 def calculate_pbcf_dribble(target_position, attacking_players, defending_players, ball_start_pos, params, possessor_id=None):
     """
@@ -126,25 +140,38 @@ def calculate_pbcf_dribble(target_position, attacking_players, defending_players
     Returns: PBCF_att, PBCF_def
     """
     T_calc = _ball_travel_time_soccer(ball_start_pos, target_position, params)
-    dt_array = np.arange(0.0, T_calc + params['max_int_time'], params['int_dt'])
-    if dt_array.size < 2:
-        dt_array = np.array([0.0, max(params['int_dt'], T_calc)])
 
-    # Choose the dribbler
-    if possessor_id is None:
-        # Fallback heuristic: closest attacker to the start-ball position
-        dists = []
-        for p in attacking_players:
-            d = np.linalg.norm(p.position - ball_start_pos) if ball_start_pos is not None else np.inf
-            dists.append((d, p.id))
-        dists.sort()
-        possessor_id = dists[0][1] if len(dists) else None
+    tau_min_att = np.nanmin( [p.simple_time_to_intercept(target_position) for p in attacking_players] )
+    tau_min_def = np.nanmin( [p.simple_time_to_intercept(target_position ) for p in defending_players] )
 
-    att_ids_filter = {possessor_id} if possessor_id is not None else None
-    def_ids_filter = None
+    # check whether we actually need to solve equation 3
+    if tau_min_att-max(T_calc,tau_min_def) >= params['time_to_control_def']:
+        # if defending team can arrive significantly before attacking team, no need to solve pitch control model
+        return 0., 1.
+    elif tau_min_def-max(T_calc,tau_min_att) >= params['time_to_control_att']:
+        # if attacking team can arrive significantly before defending team, no need to solve pitch control model
+        return 1., 0.
+    else: 
 
-    return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params,
-                           att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
+        dt_array = np.arange(0.0, T_calc, params['int_dt'])
+        if dt_array.size < 2:
+            dt_array = np.array([0.0, max(params['int_dt'], T_calc)])
+
+        # Choose the dribbler
+        if possessor_id is None:
+            # Fallback heuristic: closest attacker to the start-ball position
+            dists = []
+            for p in attacking_players:
+                d = np.linalg.norm(p.position - ball_start_pos) if ball_start_pos is not None else np.inf
+                dists.append((d, p.id))
+            dists.sort()
+            possessor_id = dists[0][1] if len(dists) else None
+
+        att_ids_filter = {possessor_id} if possessor_id is not None else None
+        def_ids_filter = None
+
+        return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params,
+                            att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
 
 def generate_pbcf_for_event(
     event_id,
@@ -200,6 +227,9 @@ def generate_pbcf_for_event(
     PBCFa       = np.zeros((len(ygrid), len(xgrid)))
     PBCFa_pass  = np.zeros_like(PBCFa) if return_components or mode in ("pass", "mix") else None
     PBCFa_dribb = np.zeros_like(PBCFa) if return_components or mode in ("dribble", "mix") else None
+    PBCFd       = np.zeros((len(ygrid), len(xgrid)))
+    PBCFd_pass  = np.zeros_like(PBCFa) if return_components or mode in ("pass", "mix") else None
+    PBCFd_dribb = np.zeros_like(PBCFa) if return_components or mode in ("dribble", "mix") else None
 
     # --- Simple pass/dribble mixing rules (soccer-friendly defaults) ---
     def _mix_weights(target_xy):
@@ -239,21 +269,32 @@ def generate_pbcf_for_event(
             # Mix as requested
             if mode == "pass":
                 att = att_pass
+                defend = def_pass
             elif mode == "dribble":
                 att = att_drib
+                defend = def_drib
             else:
                 # mix
                 att = w_pass * (att_pass if PBCFa_pass is not None else 0.0) + \
                       w_drib * (att_drib if PBCFa_dribb is not None else 0.0)
+                defend = w_pass * (def_pass if PBCFa_pass is not None else 0.0) + \
+                         w_drib * (def_drib if PBCFa_dribb is not None else 0.0)
 
             PBCFa[i, j] = att
+            PBCFd[i, j] = defend
             if PBCFa_pass is not None:
                 PBCFa_pass[i, j] = att_pass
+            if PBCFd_pass is not None:
+                PBCFd_pass[i, j] = def_pass
             if PBCFa_dribb is not None:
                 PBCFa_dribb[i, j] = att_drib
+            if PBCFd_dribb is not None:
+                PBCFd_dribb[i, j] = def_drib
 
     # --- Optional checksum, analogous to Metrica (P_att + P_def ≈ 1) ---  :contentReference[oaicite:7]{index=7}
     # Using mixed components complicates a strict global checksum; you can still check a few random cells if needed.
+    checksum = np.sum( PBCFa + PBCFd )  / float(n_grid_cells_y*n_grid_cells_x ) 
+    # import pdb; pdb.set_trace()
 
     if return_components:
         return PBCFa, xgrid, ygrid, attacking_players, PBCFa_pass, PBCFa_dribb
