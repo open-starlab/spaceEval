@@ -296,11 +296,15 @@ def calculate_ppcf_pass(target_position, attacking_players, defending_players, b
             PPCFdef[i] += player.PPCF
         i += 1
 
+    # Handle very short paths to avoid tiny totals
     if i < 3:
-        return rel_att_id, rel_def_id, PPCFatt[i-1] / (PPCFatt[i-1] + PPCFdef[i-1]), PPCFdef[i-1] / (PPCFatt[i-1] + PPCFdef[i-1])
+        denom = max(PPCFatt[i-1] + PPCFdef[i-1], 1e-12)
+        return rel_att_id, rel_def_id, PPCFatt[i-1] / denom, PPCFdef[i-1] / denom
     else:
+        # If not fully converged but time horizon exhausted, return latest
         if PPCFatt[i-1] + PPCFdef[i-1] < 1 - params['model_converge_tol'] and i >= dt_array.size:
             return rel_att_id, rel_def_id, PPCFatt[i-1], PPCFdef[i-1]
+        # Else use the last stable step
         else:
             return  rel_att_id, rel_def_id, PPCFatt[i-2], PPCFdef[i-2]
 
@@ -343,11 +347,12 @@ def calculate_ppcf_dribble(target_position, attacking_players, defending_players
                 PPCFdef[i] += player.PPCF
             i += 1
 
-        if i < 3:
-            return rel_att_id, rel_def_id, PPCFatt[i-1] / (PPCFatt[i-1] + PPCFdef[i-1]), PPCFdef[i-1] / (PPCFatt[i-1] + PPCFdef[i-1])
+        # Handle very short paths to avoid tiny totals
+        # or If not fully converged but time horizon exhausted, return latest
+        if i < 3 or (PPCFatt[i-1] + PPCFdef[i-1] < 1 - params['model_converge_tol'] and i >= dt_array.size):
+            denom = max(PPCFatt[i-1] + PPCFdef[i-1], 1e-12)
+            return rel_att_id, rel_def_id, PPCFatt[i-1] / denom, PPCFdef[i-1] / denom
+        # Else use the last stable step
         else:
-            if PPCFatt[i-1] + PPCFdef[i-1] < 1 - params['model_converge_tol'] and i >= dt_array.size:
-                return rel_att_id, rel_def_id, PPCFatt[i-1], PPCFdef[i-1]
-            else:
-                return  rel_att_id, rel_def_id, PPCFatt[i-2], PPCFdef[i-2]
+            return  rel_att_id, rel_def_id, PPCFatt[i-2], PPCFdef[i-2]
 

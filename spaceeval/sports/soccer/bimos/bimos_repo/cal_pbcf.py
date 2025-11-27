@@ -99,6 +99,7 @@ def _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_p
             denom = max(P_att[i-2] + P_def[i-2], 1e-12)
             return P_att[i-2] / denom, P_def[i-2] / denom
 
+
 def calculate_pbcf_pass(target_position, attacking_players, defending_players, ball_start_pos, params):
     """
     Soccer PBCF (pass-to-spot):
@@ -124,6 +125,7 @@ def calculate_pbcf_pass(target_position, attacking_players, defending_players, b
 
     return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params, 'pass',
                         att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
+
 
 def calculate_pbcf_dribble(target_position, attacking_players, defending_players, ball_start_pos, params, possessor_id=None):
     """
@@ -154,6 +156,7 @@ def calculate_pbcf_dribble(target_position, attacking_players, defending_players
 
     return _integrate_pbcf(dt_array, attacking_players, defending_players, ball_start_pos, target_position, params, 'dribble',
                         att_ids_filter=att_ids_filter, def_ids_filter=def_ids_filter)
+
 
 def generate_pbcf_for_event(
     event_id,
