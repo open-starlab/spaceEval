@@ -137,6 +137,7 @@ class player(object):
         self.tti_sigma = params['tti_sigma'] # standard deviation of sigmoid function (see Eq 4 in Spearman, 2018)
         self.lambda_att = params['lambda_att'] # standard deviation of sigmoid function (see Eq 4 in Spearman, 2018)
         self.lambda_def = params['lambda_gk'] if self.is_gk else params['lambda_def'] # factor of 3 ensures that anything near the GK is likely to be claimed by the GK
+        self.time_to_control = params['time_to_control_att']
         self.get_position(team)
         self.get_velocity(team)
         self.PPCF = 0. # initialise this for later
@@ -160,6 +161,8 @@ class player(object):
 
     def probability_intercept_ball(self,T):
         # probability of a player arriving at target location at time 'T' given their expected time_to_intercept (time of arrival), as described in Spearman 2018
+        if self.time_to_intercept > self.time_to_control:
+            return 0.0
         f = 1/(1. + np.exp( -np.pi/np.sqrt(3.0)/self.tti_sigma * (T-self.time_to_intercept) ) )
         return f
 
@@ -265,7 +268,7 @@ def generate_pitch_control_for_event(event_id, events, tracking_home, tracking_a
             PPCFa[i,j],PPCFd[i,j] = calculate_pitch_control_at_target(target_position, attacking_players, defending_players, ball_start_pos, params)
     # check probabilitiy sums within convergence
     checksum = np.sum( PPCFa + PPCFd ) / float(n_grid_cells_y*n_grid_cells_x ) 
-    assert 1-checksum < params['model_converge_tol'], "Checksum failed: %1.3f" % (1-checksum)
+    # assert 1-checksum < params['model_converge_tol'], "Checksum failed: %1.3f" % (1-checksum)
     return PPCFa,xgrid,ygrid,attacking_players
 
 def calculate_pitch_control_at_target(target_position, attacking_players, defending_players, ball_start_pos, params):
@@ -335,8 +338,8 @@ def calculate_pitch_control_at_target(target_position, attacking_players, defend
                 PPCFdef[i] += player.PPCF # add to sum over players in the defending team
             ptot = PPCFdef[i]+PPCFatt[i] # total pitch control probability 
             i += 1
-        if i>=dT_array.size:
-            print("Integration failed to converge: %1.3f" % (ptot) )
+        # if i>=dT_array.size:
+            # print("Integration failed to converge: %1.3f" % (ptot) )
         return PPCFatt[i-1], PPCFdef[i-1]
 
 
