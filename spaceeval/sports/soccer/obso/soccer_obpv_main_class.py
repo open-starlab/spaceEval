@@ -15,7 +15,7 @@ from .get_obpv_value import calculate_obpv
 
 class SoccerObpv(AbstractSpaceModel):
     """
-    Class for calculating Offensive Ball Possesion Value (OBPV) in soccer.
+    Class for calculating Off-Ball Positioning Value (OBPV) in soccer.
 
     This implementation was written originally by Yohei Ogawa (@Nagoya University); Rikuhei Umemoto (@Nagoya University).
     Please refer to the following paper for more details:
