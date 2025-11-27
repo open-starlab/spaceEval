@@ -305,7 +305,7 @@ def plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away
             print("Not enough data to calculate player velocities - setting include_player_velocities to False")
             include_player_velocities = False
     plot_frame( tracking_home.loc[pass_frame], tracking_away.loc[pass_frame], figax=(fig,ax), PlayerAlpha=alpha, include_player_velocities=include_player_velocities, annotate=annotate )
-    plot_events( events.loc[event_id:event_id], figax = (fig,ax), indicators = ['Marker','Arrow'], annotate=False, color= 'k', alpha=1 )
+    # plot_events( events.loc[event_id:event_id], figax = (fig,ax), indicators = ['Marker','Arrow'], annotate=False, color= 'k', alpha=1 )
     
     # plot pitch control surface
     if pass_team=='Home':
