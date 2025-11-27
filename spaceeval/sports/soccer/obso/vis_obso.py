@@ -109,7 +109,7 @@ def plot_pitch( field_dimen = (106.0,68.0), field_color ='green', linewidth=2, m
     ax.set_axisbelow(True)
     return fig,ax
 
-def plot_frame( hometeam, awayteam, figax=None, team_colors=('r','b'), field_dimen = (106.0,68.0), include_player_velocities=False, include_ball_position=False, Playermarkersize=10, PlayerAlpha=0.7, annotate=False ):
+def plot_frame( hometeam, awayteam, figax=None, team_colors=('r','b'), field_dimen = (106.0,68.0), include_player_velocities=False, include_ball_position=True, Playermarkersize=10, PlayerAlpha=0.7, annotate=False ):
     """ plot_frame( hometeam, awayteam )
     
     Plots a frame of Metrica tracking data (player positions and the ball) on a football pitch. All distances should be in meters.
