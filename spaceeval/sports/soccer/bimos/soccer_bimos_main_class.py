@@ -19,18 +19,24 @@ class soccer_bimos:
         if os.path.isdir(self.event_data):
             #read all files in the directory
             event_files = [os.path.join(self.event_data, f) for f in os.listdir(self.event_data) if f.endswith('.csv')]
+            if self.testing_mode:
+                event_files = event_files[:1]  #only read first 1 file in testing mode
             event_dict = {os.path.basename(f).split('.')[0].split('_')[-1]: pd.read_csv(f) for f in event_files}
         else:
             event_dict = {os.path.basename(self.event_data).split('.')[0].split('_')[-1]: pd.read_csv(self.event_data)}
 
         if os.path.isdir(self.tracking_home):
             tracking_home_files = [os.path.join(self.tracking_home, f) for f in os.listdir(self.tracking_home) if f.endswith('.csv')]
+            if self.testing_mode:
+                tracking_home_files = tracking_home_files[:1]  #only read first 1 file in testing mode
             tracking_home_dict = {os.path.basename(f).split('.')[0].split('_')[-1]: pd.read_csv(f) for f in tracking_home_files}
         else:
             tracking_home_dict = {os.path.basename(self.tracking_home).split('.')[0].split('_')[-1]: pd.read_csv(self.tracking_home)}
 
         if os.path.isdir(self.tracking_away):
             tracking_away_files = [os.path.join(self.tracking_away, f) for f in os.listdir(self.tracking_away) if f.endswith('.csv')]
+            if self.testing_mode:
+                tracking_away_files = tracking_away_files[:1]  #only read first 1 file in testing mode
             tracking_away_dict = {os.path.basename(f).split('.')[0].split('_')[-1]: pd.read_csv(f) for f in tracking_away_files}
         else:
             tracking_away_dict = {os.path.basename(self.tracking_away).split('.')[0].split('_')[-1]: pd.read_csv(self.tracking_away)}
@@ -45,7 +51,7 @@ class soccer_bimos:
         for key in tqdm(event_dict.keys(), desc="Calculating OBSO for all matches"):
             if key in tracking_home_dict and key in tracking_away_dict:
                 if self.testing_mode:
-                    results[key] = calculate_bimos_fc(event_dict[key].head(5), tracking_home_dict[key], tracking_away_dict[key])
+                    results[key] = calculate_bimos_fc(event_dict[key].head(1), tracking_home_dict[key], tracking_away_dict[key])
                 else:
                     try:
                         results[key] = calculate_bimos_fc(event_dict[key], tracking_home_dict[key], tracking_away_dict[key])
