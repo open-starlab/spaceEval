@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Tuple, Union
 
+from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -18,17 +19,16 @@ class AbstractSpaceModel(ABC):
 
     def __init__(
         self,
-        event_data=None,
-        tracking_home=None,
-        tracking_away=None,
+        event_data_path=None,
+        tracking_home_path=None,
+        tracking_away_path=None,
         out_path: Union[str, os.PathLike, None] = None,
         testing_mode=False
     ):
-        self.event_data = event_data
-        self.tracking_home = tracking_home
-        self.tracking_away = tracking_away
-        self.out_path = Path(out_path) if out_path else None
         self.testing_mode = testing_mode
+        self.event_data, self.tracking_home_data, self.tracking_away_data = self.read_data(
+            event_data_path, tracking_home_path, tracking_away_path)
+        self.out_path = Path(out_path) if out_path else None
 
     @abstractmethod
     def calculate(self) -> Dict[str, pd.DataFrame]:
@@ -54,7 +54,7 @@ class AbstractSpaceModel(ABC):
         """
         raise NotImplementedError("`visualize` method is not implemented.")
 
-    def read_data(self) -> DataDictionaryType:
+    def read_data(self, event_data_path, tracking_home_path, tracking_away_path) -> DataDictionaryType:
         """
         Return dictionaries mapping match_id to CSV file paths.
 
@@ -69,10 +69,31 @@ class AbstractSpaceModel(ABC):
             - tracking_home_dict: {match_id: home_tracking_csv_path}
             - tracking_away_dict: {match_id: away_tracking_csv_path}
         """
-        events_dict = self._ensure_filepath_dict(self.event_data)
-        tracking_home_dict = self._ensure_filepath_dict(self.tracking_home)
-        tracking_away_dict = self._ensure_filepath_dict(self.tracking_away)
-        return events_dict, tracking_home_dict, tracking_away_dict
+        events_dict = self._ensure_filepath_dict(event_data_path)
+        tracking_home_dict = self._ensure_filepath_dict(tracking_home_path)
+        tracking_away_dict = self._ensure_filepath_dict(tracking_away_path)
+
+        match_ids = sorted(
+            set(events_dict.keys())
+            & set(tracking_home_dict.keys())
+            & set(tracking_away_dict.keys())
+        )
+
+        if not match_ids:
+            raise ValueError(
+                "No matching keys found across event and tracking inputs.")
+
+        if self.testing_mode:
+            print("In testing mode, only up to 5 files per match will be read.")
+            match_ids = match_ids[:5]
+
+        events_dfs = {k: pd.read_csv(
+            events_dict[k]) for k in tqdm(match_ids, desc="Reading event data")}
+        tracking_home_dfs = {k: pd.read_csv(
+            tracking_home_dict[k]) for k in tqdm(match_ids, desc="Reading home tracking data")}
+        tracking_away_dfs = {k: pd.read_csv(
+            tracking_away_dict[k]) for k in tqdm(match_ids, desc="Reading away tracking data")}
+        return events_dfs, tracking_home_dfs, tracking_away_dfs
 
     @staticmethod
     def _ensure_filepath_dict(source) -> Dict[str, str]:
