@@ -1,14 +1,11 @@
-from typing import Iterable
-
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-from scipy.optimize import minimize
 from scipy.stats import gaussian_kde
 import os
 from tqdm import tqdm
 
 from ..c_obso_repo import Metrica_IO as mio
+
 
 class TransitionKernelModel:
 
@@ -32,17 +29,9 @@ class TransitionKernelModel:
             events = self.event_data[idx]
             tracking_home = self.tracking_home[idx]
             tracking_away = self.tracking_away[idx]
-            
-            # find max and minx of x and y coordinates in events data
-            max_x = events[['Start X', 'End X']].max().max()
-            min_x = events[['Start X', 'End X']].min().min()
-            max_y = events[['Start Y', 'End Y']].max().max()
-            min_y = events[['Start Y', 'End Y']].min().min()
-            print(f"Event data x range: {min_x} to {max_x}, y range: {min_y} to {max_y}")
 
             tracking_home, tracking_away, events = mio.to_single_playing_direction(
                 tracking_home, tracking_away, events)
-
 
             for idx, event in events.iterrows():
                 if pd.isna(event['Type']) or event['Type'].lower() != 'pass':
@@ -60,7 +49,8 @@ class TransitionKernelModel:
                     end_x = -end_x
                     end_y = -end_y
 
-                area_number = self.divide_pitch(start_x, start_y, dimensions=self.settings['field_dimen'])
+                area_number = self.divide_pitch(
+                    start_x, start_y, dimensions=self.settings['field_dimen'])
 
                 directions[area_number].append(
                     [end_x - start_x, end_y - start_y])
@@ -191,19 +181,20 @@ class TransitionKernelModel:
             xy = np.vstack([x_coords, y_coords])
 
             if xy.shape[1] < 2:
-                print(f"Not enough samples to fit KDE for area {key}. Storing zeros.")
+                print(
+                    f"Not enough samples to fit KDE for area {key}. Storing zeros.")
                 df = pd.DataFrame(np.zeros(X.shape))
                 results[key] = df
                 continue
 
             # if contains infinite values or NaN, remove them
             xy = xy[:, np.isfinite(xy).all(axis=0)]
-            
 
             try:
                 kde = gaussian_kde(xy, bw_method='silverman')
             except np.linalg.LinAlgError:
-                print(f"Singular covariance matrix encountered for area {key}. Adding jitter and retrying.")
+                print(
+                    f"Singular covariance matrix encountered for area {key}. Adding jitter and retrying.")
                 # singular covariance: try adding tiny jitter and retry
                 jitter_scale = 1e-6 * (np.nanmax(np.std(xy, axis=1)) + 1e-8)
                 rng = np.random.default_rng(0)
@@ -211,7 +202,8 @@ class TransitionKernelModel:
                 try:
                     kde = gaussian_kde(xy_jitter, bw_method='silverman')
                 except np.linalg.LinAlgError:
-                    print(f"Failed to fit KDE for area {key} after adding jitter. Storing zeros.")
+                    print(
+                        f"Failed to fit KDE for area {key} after adding jitter. Storing zeros.")
                     df = pd.DataFrame(np.zeros(X.shape))
                     results[key] = df
                     continue
