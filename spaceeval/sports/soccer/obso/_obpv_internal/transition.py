@@ -81,8 +81,23 @@ class TransitionKernelModel:
 
             self.transition_distributions[key].to_csv(
                 f'{save_dir}/Area{key}_Transition.csv', index=False, header=False)
+    
+    def load_from_csv(self, load_dir):
+        self.pass_direction_matrices = {}
+        self.transition_distributions = {}
+        for file_name in os.listdir(load_dir):
+            if file_name.startswith("Area") and file_name.endswith("_pass.csv"):
+                area_number = int(file_name[len("Area"): -len("_pass.csv")])
+                df = pd.read_csv(os.path.join(load_dir, file_name))
+                self.pass_direction_matrices[area_number] = df.values.tolist()
+            elif file_name.startswith("Area") and file_name.endswith("_Transition.csv"):
+                area_number = int(
+                    file_name[len("Area"): -len("_Transition.csv")])
+                df = pd.read_csv(os.path.join(load_dir, file_name), header=None)
+                self.transition_distributions[area_number] = df
 
-    def divide_pitch(self, x, y, dimensions=(106., 68.)):
+    @staticmethod
+    def divide_pitch(x, y, dimensions=(106., 68.)):
         """
         Returns the area number based on the given x and y coordinates on the pitch.
 
