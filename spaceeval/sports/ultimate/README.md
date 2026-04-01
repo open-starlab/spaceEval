@@ -132,7 +132,7 @@ wuppcf_results = wuppcf_model.get_wuppcf()
 
 ---
 
-### 6. CRSV (`vTCS`) Calculation
+### 6. Vtiming Calculation
 
 ```python
 from spaceEval.spaceeval.sports.ultimate.crsv.ultimate_crsv_main_class import (
@@ -156,12 +156,12 @@ v_frame_results, v_scenario_results, v_timing_results = crsv_model.calc_all()
 **Output:**
 - `v_frame/` - Frame-level spatial value
 - `v_scenario/` - Maximum spatial value per scenario
-- `vtcs.csv` - Difference between actual and optimal play (final result)
+- `v_timing.csv` - Difference between actual and optimal play (final result)
 
 ---
 
 ## Related Package
 
-- [PreProcessing README](https://github.com/open-starlab/PreProcessing)
-- [spaceEval README](https://github.com/open-starlab/spaceEval)
+- [PreProcessing](https://github.com/open-starlab/PreProcessing)
+- [spaceEval](https://github.com/open-starlab/spaceEval)
 
