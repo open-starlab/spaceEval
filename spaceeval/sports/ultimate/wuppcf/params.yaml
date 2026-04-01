@@ -4,7 +4,7 @@ UltimateTrack:
   field_width: 37.0
   fps: 15
 
-UFA:
+UFATrack:
   field_length: 109.73
   field_width: 48.77
   fps: 10
