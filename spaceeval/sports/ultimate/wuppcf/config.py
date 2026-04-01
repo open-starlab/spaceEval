@@ -6,7 +6,7 @@ import numpy as np
 import yaml
 
 PROVIDER_ULTIMATE_TRACK: str = "UltimateTrack"
-PROVIDER_UFA: str = "UFA"
+PROVIDER_UFA_TRACK: str = "UFATrack"
 
 
 def _load_all_params() -> Dict[str, Dict[str, float]]:
@@ -38,7 +38,7 @@ def get_provider_settings(provider: str) -> ProviderSettings:
     """Get provider settings from YAML config.
 
     Args:
-        provider: Provider name (e.g., "UltimateTrack", "UFA")
+        provider: Provider name (e.g., "UltimateTrack", "UFATrack")
 
     Returns:
         ProviderSettings object
