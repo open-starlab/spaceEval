@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from ..wuppcf.config import get_provider_settings
+
 
 class CounterfactualResult:
     """Container for counterfactual scenario generation results."""
@@ -41,6 +43,7 @@ class ultimate_generate_counterfactual:
         """
         self.input_data = input_data
         self.provider = provider
+        self.fps = get_provider_settings(provider).fps
         self.out_path = Path(out_path) if out_path else None
         self.testing_mode = testing_mode
 
@@ -115,7 +118,7 @@ class ultimate_generate_counterfactual:
 
     @staticmethod
     def _slide_movement_forward(
-        df: pd.DataFrame, slide_size: int
+        df: pd.DataFrame, slide_size: int, fps: int = 15
     ) -> pd.DataFrame | None:
         """
         Slide the movement data of the selected player forward.
@@ -239,13 +242,13 @@ class ultimate_generate_counterfactual:
                     df[(df["id"] == selected_id) & (df["frame"] == new_max_frame)][
                         "x"
                     ].values[0]
-                    + vx_mean / 15 * i
+                    + vx_mean / fps * i
                 ).round(2)
                 y = (
                     df[(df["id"] == selected_id) & (df["frame"] == new_max_frame)][
                         "y"
                     ].values[0]
-                    + vy_mean / 15 * i
+                    + vy_mean / fps * i
                 ).round(2)
 
                 rows_to_add.append(
@@ -289,7 +292,7 @@ class ultimate_generate_counterfactual:
 
     @staticmethod
     def _slide_movement_backward(
-        df: pd.DataFrame, slide_size: int
+        df: pd.DataFrame, slide_size: int, fps: int = 15
     ) -> pd.DataFrame | None:
         """
         Slide the movement data of the selected player backward.
@@ -378,13 +381,13 @@ class ultimate_generate_counterfactual:
                     df[(df["id"] == selected_id) & (df["frame"] == start_frame - 1)][
                         "x"
                     ].values[0]
-                    + vx_mean / 15 * i
+                    + vx_mean / fps * i
                 ).round(2)
                 y = (
                     df[(df["id"] == selected_id) & (df["frame"] == start_frame - 1)][
                         "y"
                     ].values[0]
-                    + vy_mean / 15 * i
+                    + vy_mean / fps * i
                 ).round(2)
 
                 rows_to_add.append(
@@ -558,10 +561,10 @@ class ultimate_generate_counterfactual:
             for slide_size in slide_sizes:
                 if slide_size < 0:
                     # Slide the movement data forward
-                    df_slide = self._slide_movement_forward(df, slide_size)
+                    df_slide = self._slide_movement_forward(df, slide_size, fps=self.fps)
                 elif slide_size > 0:
                     # Slide the movement data backward
-                    df_slide = self._slide_movement_backward(df, slide_size)
+                    df_slide = self._slide_movement_backward(df, slide_size, fps=self.fps)
                 else:
                     df_slide = df.copy()
 

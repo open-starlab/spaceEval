@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from ..wuppcf.config import get_model_params, get_provider_settings
+
 
 class VFrameResult:
     """Container for v_frame calculation results."""
@@ -55,14 +57,12 @@ class ultimate_crsv:
 
     def _get_grid_config(self) -> Tuple[np.ndarray, np.ndarray]:
         """Get grid configuration based on provider."""
-        if self.provider == "UltimateTrack":
-            xgrid = np.arange(1, 94, 2)
-            ygrid = np.arange(37 / 18 / 2, 37, 37 / 18)
-        elif self.provider == "UFATrack":
-            xgrid = np.arange(110 / 54 / 2, 110, 110 / 54)
-            ygrid = np.arange(49 / 24 / 2, 49, 49 / 24)
-        else:
-            raise ValueError(f"Unknown provider: {self.provider}")
+        settings = get_provider_settings(self.provider)
+        grid_size = get_model_params(self.provider)["grid_size"]
+        nx = int(settings.field_length / grid_size)
+        ny = int(nx * settings.field_width / settings.field_length)
+        xgrid = np.linspace(0.0, settings.field_length, nx)
+        ygrid = np.linspace(0.0, settings.field_width, ny)
         return xgrid, ygrid
 
     @staticmethod
@@ -166,6 +166,14 @@ class ultimate_crsv:
             scenario = pd.read_csv(scenario_path)
             wuppcf = np.load(wuppcf_file)
 
+            # calculate_wuppcf stores the union of non-holder player IDs across
+            # frames. A frame-local index changes when the holder changes.
+            player_ids = sorted(scenario.loc[
+                (scenario["class"] == "offense") & ~scenario["holder"], "id"
+            ].unique())
+            if wuppcf.shape[0] != len(player_ids):
+                raise ValueError("Player-map axis does not match this scenario; regenerate matching maps.")
+            player_index = {pid: i for i, pid in enumerate(player_ids)}
             unique_frames = sorted(scenario["frame"].unique())
             v_frame_results = []
 
@@ -189,7 +197,7 @@ class ultimate_crsv:
                 for index, row in offense.iterrows():
                     # try:
                     v_frame, mask_size = self._calc_v_frame_single(
-                        wuppcf[index, frame_idx, :, :],
+                        wuppcf[player_index[row["id"]], frame_idx, :, :],
                         row,
                         xgrid,
                         ygrid,
@@ -286,7 +294,7 @@ class ultimate_crsv:
                 )
 
             v_frame_files = [
-                f for f in os.listdir(v_frame_dir) if f.lower().endswith(".csv")
+                Path(f).stem for f in os.listdir(v_frame_dir) if f.lower().endswith(".csv")
             ]
         else:
             v_frame_files = list(v_frame_results.keys())
@@ -322,9 +330,10 @@ class ultimate_crsv:
                     v_frame_data = pd.read_csv(v_frame_file)
 
                 # Calculate moving average
-                v_frame_data["value_smoothed"] = (
-                    np.convolve(v_frame_data["value"], np.ones(10), mode="same") / 10
-                )
+                # Match the existing centred, zero-padded ten-frame average,
+                # including when the signal is shorter than the kernel.
+                convolution = np.convolve(v_frame_data["value"], np.ones(10), mode="full")
+                v_frame_data["value_smoothed"] = convolution[4:4 + len(v_frame_data)] / 10
                 max_idx = v_frame_data["value_smoothed"].idxmax()
                 max_val = v_frame_data["value_smoothed"].max()
 
