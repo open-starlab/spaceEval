@@ -26,6 +26,7 @@ dependencies = [
     "tqdm",
     "opencv-python",
     "joblib",
+    "PyYAML",
 ]
 
 license = { text = "Apache License 2.0" }
@@ -37,6 +38,7 @@ include-package-data = true
 where = ["."]
 
 [tool.setuptools.package-data]
+"spaceeval.sports.ultimate.wuppcf" = ["params.yaml"]
 "spaceeval.sports.soccer.obso.c_obso_repo" = ["*.csv"]
 "spaceeval.sports.basketball.model_parameter" = ["params.yaml"]
 "spaceeval.sports.basketball.utils" = [
