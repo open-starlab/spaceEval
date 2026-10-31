@@ -139,9 +139,56 @@ class UltimateRegressions(unittest.TestCase):
         a = [make_player(1, "Home", (50., 0.), p)]
         d = [make_player(1, "Away", (50., 1.), p)]
         with self.assertRaisesRegex(RuntimeError, "did not converge"):
-            mpc.calculate_pitch_control_at_target(np.zeros(2), a, d, np.zeros(2), p)
-        A, D, _ = mpc.calculate_pitch_control_at_target(np.zeros(2), a, d, np.zeros(2), dict(p, max_int_time=20.))
+            mpc.calculate_pitch_control_at_target(np.zeros(2), a, d, np.zeros(2), dict(p, max_int_time=5.))
+        A, D, _ = mpc.calculate_pitch_control_at_target(np.zeros(2), a, d, np.zeros(2), p)
         self.assertLessEqual(1. - A - D, p["model_converge_tol"])
+
+    def test_default_horizon_covers_field_diagonal_and_retreating_players(self):
+        for provider in ("UFATrack", "UltimateTrack"):
+            with self.subTest(provider=provider):
+                p = config.get_model_params(provider)
+                corner = np.array(config.get_provider_settings(provider).field_dimen) / 2.
+                a = [make_player(1, "Home", -corner, p)]
+                d = [make_player(1, "Away", -corner, p)]
+                # The production velocity filter accepts speeds up to 12 m/s.
+                for player in a + d:
+                    player.velocity = -12. * corner / np.linalg.norm(corner)
+                A, D, values = mpc.calculate_pitch_control_at_target(corner, a, d, None, p)
+                self.assertLessEqual(1. - A - D, p["model_converge_tol"])
+                self.assertLessEqual(A + D, 1.)
+                self.assertTrue(np.all(values >= 0.))
+                self.assertAlmostEqual(values.sum(), A)
+                short = mpc.calculate_pitch_control_at_target(-corner, a, d, None, dict(p, max_int_time=5.))
+                default = mpc.calculate_pitch_control_at_target(-corner, a, d, None, p)
+                np.testing.assert_array_equal(short[2], default[2])
+                self.assertEqual(short[:2], default[:2])
+
+    def test_default_pipeline_completes_full_provider_grids(self):
+        for provider in ("UFATrack", "UltimateTrack"):
+            with self.subTest(provider=provider), tempfile.TemporaryDirectory() as folder:
+                settings = config.get_provider_settings(provider)
+                path = Path(folder)
+                # Cluster at one end so distant cells exceeded the old 5 s cap.
+                for side in ("Home", "Away"):
+                    rows = []
+                    for frame in range(5):
+                        row = {"Time [s]": frame / settings.fps, "disc_x": 1., "disc_y": 1.}
+                        for pid in range(1, 8):
+                            row.update({f"{side}_{pid}_x": 1. + pid / 10.,
+                                        f"{side}_{pid}_y": 1. + pid / 10.})
+                        rows.append(row)
+                    pd.DataFrame(rows).to_csv(path / f"{side}.csv", index=False)
+                pd.DataFrame([{"Start Frame": 4, "Start X": 1., "Start Y": 1., "From": 1}]).to_csv(
+                    path / "events.csv", index=False)
+                result = wuppcf.calculate_wuppcf(str(path / "events.csv"), str(path / "Home.csv"),
+                                                str(path / "Away.csv"), provider=provider)
+                nx = int(settings.field_length / config.get_model_params(provider)["grid_size"])
+                ny = int(nx * settings.field_width / settings.field_length)
+                self.assertEqual(result.wuppcf.shape, (1, ny, nx))
+                self.assertEqual(result.player_wuppcf.shape, (6, 1, ny, nx))
+                for values in (result.wuppcf, result.player_wuppcf):
+                    self.assertTrue(np.isfinite(values).all())
+                    self.assertTrue(np.all((values >= 0.) & (values <= 1.)))
 
     def test_marker_distance_is_in_metres(self):
         home, away = team_rows()
@@ -155,7 +202,7 @@ class UltimateRegressions(unittest.TestCase):
         home, away = team_rows()
         event = pd.DataFrame([{"Start Frame": 0, "Start X": 0., "Start Y": 0.}])
         maps = mpc.generate_pitch_control_for_event(0, event, pd.DataFrame([home]), pd.DataFrame([away]),
-            pd.DataFrame(), dict(self.params, max_int_time=20.), field_dimen=(10., 6.), n_grid_cells_x=5)
+            pd.DataFrame(), self.params, field_dimen=(10., 6.), n_grid_cells_x=5)
         self.assertEqual(len(maps), 4)
         self.assertIsNone(maps[2])
         self.assertEqual(maps[0].shape, (3, 5))
