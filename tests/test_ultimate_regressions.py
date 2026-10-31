@@ -10,6 +10,7 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -50,6 +51,7 @@ def _load_modules():
             load("ultimate_numeric_regression", BASE / "wuppcf/obso_repo/Metrica_PitchControl.py"),
             load("spaceeval.sports.ultimate.crsv.ultimate_crsv_main_class", BASE / "crsv/ultimate_crsv_main_class.py"),
             load("spaceeval.sports.ultimate.crsv.ultimate_generate_counterfactual_main_class", BASE / "crsv/ultimate_generate_counterfactual_main_class.py"),
+            load("spaceeval.sports.ultimate.wuppcf.get_wuppcf_value", BASE / "wuppcf/get_wuppcf_value.py"),
         )
     finally:
         for name in list(sys.modules):
@@ -58,7 +60,7 @@ def _load_modules():
         sys.modules.update(previous)
 
 
-config, mpc, crsv, cf = _load_modules()
+config, mpc, crsv, cf, wuppcf = _load_modules()
 
 
 def make_player(pid, side, xy, params):
@@ -202,13 +204,52 @@ class UltimateRegressions(unittest.TestCase):
                 rows.append(dict(frame=frame, id=15, **{"class": "disc"}, holder=False,
                                  selected=False, x=0., y=20., vx=0., vy=0.))
             pd.DataFrame(rows).to_csv(path / "example_0.csv", index=False)
-            maps = np.broadcast_to(np.array([.1, .2, .3])[:, None, None, None], (3, 2, 24, 54)).copy()
+            # The exporter sorts string IDs: "10", "8", "9".
+            maps = np.broadcast_to(np.array([.3, .1, .2])[:, None, None, None], (3, 2, 24, 54)).copy()
             np.save(path / "example_0.npy", maps)
             out = crsv.ultimate_crsv(path, path, provider="UFATrack").calc_v_frame()["example_0"].v_frame_data
             np.testing.assert_allclose(out["value"], [.3, .3])
             np.save(path / "example_0.npy", maps[:2])
             with self.assertRaisesRegex(ValueError, "Player-map axis"):
                 crsv.ultimate_crsv(path, path, provider="UFATrack").calc_v_frame()
+
+    def test_exported_player_maps_keep_identity_in_crsv(self):
+        # Exercise the actual CSV reader, exporter axis assembly, saved .npy,
+        # and CRSV consumer. Tagged maps isolate player identity from physics.
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            scenarios = path / "scenarios"
+            scenarios.mkdir()
+            holders = [8, 9]
+            events = pd.DataFrame({"Start Frame": [0, 1], "From": holders,
+                                   "Start X": [0., 0.], "Start Y": [20., 20.]})
+            tracking = pd.DataFrame({"Frame": [0, 1], "Time [s]": [0., .1]})
+            events.to_csv(path / "events.csv", index=False)
+            tracking.to_csv(path / "tracking.csv", index=False)
+            rows = []
+            for frame, holder in enumerate(holders):
+                for pid in [8, 9, 10]:
+                    rows.append(dict(frame=frame, id=pid, **{"class": "offense"}, holder=pid == holder,
+                                     selected=pid == 10, x=30., y=20., vx=5., vy=0.))
+                rows.append(dict(frame=frame, id=15, **{"class": "disc"}, holder=False,
+                                 selected=False, x=0., y=20., vx=0., vy=0.))
+            pd.DataFrame(rows).to_csv(scenarios / "example_0.csv", index=False)
+
+            def tagged_event_map(event_idx, *args, **kwargs):
+                ids = [pid for pid in [8, 9, 10] if pid != holders[event_idx]]
+                maps = np.stack([np.full((24, 54), pid / 100.) for pid in ids])
+                return np.ones((24, 54)), maps, None, [types.SimpleNamespace(id=str(pid)) for pid in ids]
+
+            with patch.object(wuppcf.mvel, "calc_player_velocities", side_effect=lambda data, **kw: data), \
+                 patch.object(wuppcf.mpc, "generate_pitch_control_for_event", side_effect=tagged_event_map), \
+                 patch.object(wuppcf.mpc, "calculate_ultimate_pitch_control", side_effect=lambda team, players, *args, **kw: (team, players)):
+                exported = wuppcf.calculate_wuppcf(str(path / "events.csv"), str(path / "tracking.csv"),
+                                                  str(path / "tracking.csv"), provider="UFATrack")
+            np.testing.assert_allclose(exported.player_wuppcf[:, :, 0, 0],
+                                       [[.10, .10], [0., .08], [.09, 0.]])
+            np.save(path / "example_0.npy", exported.player_wuppcf)
+            result = crsv.ultimate_crsv(path, scenarios, provider="UFATrack").calc_v_frame()["example_0"]
+            np.testing.assert_allclose(result.v_frame_data["value"], [.10, .10])
 
     def test_disk_scenario_ids_and_short_smoothing(self):
         with tempfile.TemporaryDirectory() as folder:

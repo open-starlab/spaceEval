@@ -166,11 +166,12 @@ class ultimate_crsv:
             scenario = pd.read_csv(scenario_path)
             wuppcf = np.load(wuppcf_file)
 
-            # calculate_wuppcf stores the union of non-holder player IDs across
-            # frames. A frame-local index changes when the holder changes.
+            # calculate_wuppcf stores the union of non-holder IDs across frames
+            # in string-sorted order (e.g. "10", "8", "9"). Match that axis,
+            # including when the holder changes between frames.
             player_ids = sorted(scenario.loc[
                 (scenario["class"] == "offense") & ~scenario["holder"], "id"
-            ].unique())
+            ].unique(), key=str)
             if wuppcf.shape[0] != len(player_ids):
                 raise ValueError("Player-map axis does not match this scenario; regenerate matching maps.")
             player_index = {pid: i for i, pid in enumerate(player_ids)}
