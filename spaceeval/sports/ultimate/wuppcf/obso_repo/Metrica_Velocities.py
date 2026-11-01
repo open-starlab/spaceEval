@@ -15,6 +15,27 @@ import pandas as pd
 import scipy.signal as signal
 
 
+def _smooth_velocity(values, window, polyorder):
+    """Preserve missing windows without fitting NaNs at the signal edges."""
+    if len(values) < window:
+        raise ValueError("Velocity series must be at least as long as the smoothing window.")
+    # Interior convolution already propagates NaNs. Recent SciPy versions
+    # reject NaNs in the default edge polynomial fit instead of returning NaNs.
+    result = signal.savgol_filter(values, window, polyorder, mode="constant")
+    half = window // 2
+    if half:
+        for edge, output, fitted in (
+            (slice(0, window), slice(0, half), slice(0, half)),
+            (slice(-window, None), slice(-half, None), slice(-half, None)),
+        ):
+            segment = np.asarray(values)[edge]
+            if np.isfinite(segment).all():
+                result[output] = signal.savgol_filter(segment, window, polyorder)[fitted]
+            else:
+                result[output] = np.nan
+    return result
+
+
 def calc_player_velocities(
     team: pd.DataFrame,
     smoothing: bool = True,
@@ -65,8 +86,8 @@ def calc_player_velocities(
         if smoothing:
             if filter_ == "Savitzky-Golay":
                 # calculate velocity
-                vx = signal.savgol_filter(vx, window_length=window, polyorder=polyorder)
-                vy = signal.savgol_filter(vy, window_length=window, polyorder=polyorder)
+                vx = _smooth_velocity(vx, window, polyorder)
+                vy = _smooth_velocity(vy, window, polyorder)
             elif filter_ == "moving average":
                 ma_window = np.ones(window) / window
                 # calculate velocity
