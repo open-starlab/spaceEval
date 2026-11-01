@@ -93,13 +93,6 @@ def initialise_players(
                 if _[5] == str(removed_player_id) and len(_) == 8
             ]
         )
-        if len(disc_holder_loc) != 0:
-            disc_holder_loc = np.array(
-                [
-                    disc_holder_loc[0] * 2 + field_dimen[0],
-                    -1 * disc_holder_loc[1] * 2 + field_dimen[1],
-                ]
-            )
         dist_min = 100
         for i in defending_player_ids:
             defending_player_loc = np.array(
@@ -107,12 +100,6 @@ def initialise_players(
                     defending_team[_]
                     for _ in defending_team.keys()
                     if _[5] == str(i) and len(_) == 8
-                ]
-            )
-            defending_player_loc = np.array(
-                [
-                    defending_player_loc[0] * 2 + field_dimen[0],
-                    -1 * defending_player_loc[1] * 2 + field_dimen[1],
                 ]
             )
             if len(disc_holder_loc) == 0:
@@ -368,6 +355,7 @@ def generate_pitch_control_for_event(
     UPPCFd = np.zeros(shape=(len(ygrid), len(xgrid)))
     # if remove is true, remove players near the disc
 
+    defending_removed_player = None
     if remove is False:
         attacking_players, defending_players, _ = initialise_players(
             tracking_home.loc[frame - min_frame],
@@ -436,7 +424,13 @@ def calculate_pitch_control_at_target(
     -----------
         PPCFatt: Pitch control probability for the attacking team
         PPCFdef: Pitch control probability for the defending team ( 1-PPCFatt-PPCFdef <  params['model_converge_tol'] )
-        grid_player_UPPCF: Pitch control contribution for each attacking player at the target position (dimen (num_attacking_players,) )
+        grid_player_UPPCF: Pitch control contribution in the supplied attacking-player order, with zero entries for pruned players (dimen (num_attacking_players,) ).
+
+    Raises
+    ------
+        RuntimeError: If the configured horizon is exhausted before residual
+        probability is at most model_converge_tol. No implicit horizon extension
+        or normalization of an unconverged result is performed.
 
     """
     # calculate ball travel time from start position to end position.
@@ -451,85 +445,68 @@ def calculate_pitch_control_at_target(
             / params["average_ball_speed"]
         )
 
-    # Sort attacking players by id
-    attacking_players = sorted(attacking_players, key=lambda x: int(x.id))
-
-    # Calculate time to intercept for all players first
-    for p in attacking_players:
-        p.calc_time_to_intercept(target_position, params)
-    for p in defending_players:
+    # Keep the caller's player axis, including zero slots for pruned players.
+    all_attackers = list(attacking_players)
+    if not all_attackers or not defending_players:
+        raise ValueError("Both teams must contain at least one player.")
+    for p in all_attackers + list(defending_players):
         p.calc_time_to_intercept(target_position, params)
 
-    # first get arrival time of 'nearest' attacking player (nearest also dependent on current velocity)
-    tau_min_att = np.nanmin([p.time_to_intercept for p in attacking_players])
-    tau_min_def = np.nanmin([p.time_to_intercept for p in defending_players])
-
-    # solve pitch control model by integrating equation 3 in Spearman et al.
-    grid_player_UPPCF = np.zeros(shape=(len(attacking_players), 1))
-    # first remove any player that is far (in time) from the target location
+    tau_min_att = min(p.time_to_intercept for p in all_attackers)
+    tau_min_def = min(p.time_to_intercept for p in defending_players)
     attacking_players = [
-        p
-        for p in attacking_players
+        p for p in all_attackers
         if p.time_to_intercept - tau_min_att < params["time_to_control_att"]
     ]
     defending_players = [
-        p
-        for p in defending_players
+        p for p in defending_players
         if p.time_to_intercept - tau_min_def < params["time_to_control_def"]
     ]
-    # set up integration arrays
-    dT_array = np.arange(
-        ball_travel_time - params["int_dt"],
-        ball_travel_time + params["max_int_time"],
-        params["int_dt"],
-    )
-    UPPCFatt = np.zeros_like(dT_array)
-    UPPCFdef = np.zeros_like(dT_array)
-    # integration equation 3 of Spearman 2018 until convergence or tolerance limit hit (see 'params')
-    ptot = 0.0
-    i = 1
-    while 1 - ptot > params["model_converge_tol"] and i < dT_array.size:
-        T = dT_array[i]
-        for player in attacking_players:
-            # calculate ball control probablity for 'player' in time interval T+dt
-            dUPPCFdT = (
-                (1 - UPPCFatt[i - 1] - UPPCFdef[i - 1])
-                * player.probability_intercept_ball(T)
-                * player.lambda_att
-            )
-            # make sure it's greater than zero
-            assert (
-                dUPPCFdT >= 0
-            ), "Invalid attacking player probability (calculate_pitch_control_at_target)"
-            player.UPPCF += (
-                dUPPCFdT * params["int_dt"]
-            )  # total contribution from individual player
-            UPPCFatt[
-                i
-            ] += (
-                player.UPPCF
-            )  # add to sum over players in the attacking team (remembering array element is zero at the start of each integration iteration)
-        for player in defending_players:
-            # calculate ball control probablity for 'player' in time interval T+dt
-            dUPPCFdT = (
-                (1 - UPPCFatt[i - 1] - UPPCFdef[i - 1])
-                * player.probability_intercept_ball(T)
-                * player.lambda_def
-            )
-            # make sure it's greater than zero
-            assert (
-                dUPPCFdT >= 0
-            ), "Invalid defending player probability (calculate_pitch_control_at_target)"
-            player.UPPCF += (
-                dUPPCFdT * params["int_dt"]
-            )  # total contribution from individual player
-            UPPCFdef[i] += player.UPPCF  # add to sum over players in the defending team
-        ptot = UPPCFdef[i] + UPPCFatt[i]  # total pitch control probability
-        i += 1
-    for n, player in enumerate(attacking_players):
-        grid_player_UPPCF[n] = player.UPPCF
+    active = attacking_players + defending_players
+    rates = np.array([p.lambda_att for p in attacking_players]
+                     + [p.lambda_def for p in defending_players])
+    dt = float(params["int_dt"])
+    horizon = float(params["max_int_time"])
+    tolerance = float(params["model_converge_tol"])
+    if (not np.isfinite([dt, horizon, tolerance, ball_travel_time]).all()
+            or dt <= 0 or horizon <= 0 or not 0 < tolerance < 1
+            or not np.isfinite(rates).all() or np.any(rates < 0)):
+        raise ValueError("Invalid pitch-control integration parameters.")
 
-    return UPPCFatt[i - 1], UPPCFdef[i - 1], grid_player_UPPCF[:, 0]
+    # Retain explicit Euler. Limit its step so a single update cannot consume
+    # more than half of the remaining probability mass (h * sum(hazard) <= .5).
+    contributions = np.zeros(len(active))
+    elapsed = 0.0
+    while 1.0 - contributions.sum() > tolerance and elapsed < horizon:
+        hazards = rates * np.array([
+            p.probability_intercept_ball(ball_travel_time + elapsed)
+            for p in active
+        ])
+        if not np.isfinite(hazards).all() or np.any(hazards < 0):
+            raise ValueError("Invalid pitch-control hazard.")
+        h = min(dt, horizon - elapsed)
+        total_hazard = hazards.sum()
+        if total_hazard > 0:
+            h = min(h, 0.5 / total_hazard)
+        if elapsed + h == elapsed:
+            raise RuntimeError("Pitch-control integration step underflow.")
+        contributions += (1.0 - contributions.sum()) * hazards * h
+        elapsed += h
+
+    residual = 1.0 - contributions.sum()
+    if residual > tolerance:
+        raise RuntimeError(
+            f"Pitch control did not converge within {horizon:g} s "
+            f"(residual={residual:.6g}, tolerance={tolerance:g}). "
+            "Increase max_int_time explicitly before retrying."
+        )
+    for p, contribution in zip(active, contributions):
+        p.UPPCF = float(contribution)
+    return (
+        float(contributions[:len(attacking_players)].sum()),
+        float(contributions[len(attacking_players):].sum()),
+        np.array([p.UPPCF for p in all_attackers]),
+    )
 
 
 def calculate_ultimate_pitch_control(
@@ -586,8 +563,10 @@ def calculate_ultimate_pitch_control(
 
     weight_range = np.zeros_like(UPPCF)
     weight_stalling = np.zeros_like(UPPCF)
-    dx = field_dimen[0] / weight_range.shape[2]
-    dy = field_dimen[1] / weight_range.shape[1]
+    # Control is sampled at metric endpoints; convert those same locations to
+    # raw coordinates (raw y increases opposite to metric y).
+    xgrid = np.linspace(0.0, field_dimen[0], weight_range.shape[2])
+    ygrid = np.linspace(field_dimen[1], 0.0, weight_range.shape[1])
     for t in range(weight_range.shape[0]):
         continue_value = False
         if np.linalg.norm(ball_start_pos[t] - stalling_pos[t]) > 3:
@@ -598,8 +577,8 @@ def calculate_ultimate_pitch_control(
         for i in range(weight_range.shape[1]):
             for j in range(weight_range.shape[2]):
                 # Calculate weight for range
-                target_x = j * dx + dx / 2
-                target_y = i * dy + dy / 2
+                target_x = xgrid[j]
+                target_y = ygrid[i]
                 target = np.array([target_x, target_y])
                 dist = np.linalg.norm(target - ball_start_pos[t])
                 y1 = (1 - sigmoid(0.15, 40, dist) + 1) / 2
@@ -650,7 +629,6 @@ def calculate_ultimate_pitch_control(
                     ) / 2
                 else:
                     weight_stalling[t, i, j] = 1
-        weight_stalling[t] = weight_stalling[t][::-1, :]
 
     wUPPCF = UPPCF * weight_range * weight_stalling
     player_wUPPCF = (
